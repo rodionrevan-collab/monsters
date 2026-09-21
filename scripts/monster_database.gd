@@ -68,6 +68,76 @@ static func get_skills(monster_id: String) -> Array[Dictionary]:
         {"name": "Guardian Pulse", "power": 0.9, "element": element, "cooldown": 3, "kind": "heal_self"}
     ]
 
+
+static func breeding_results(a: String, b: String) -> Array[Dictionary]:
+    var key := _breeding_key(a, b)
+    var recipes := {
+        "embercub:sproutling": [
+            {"monster_id": "tidehorn", "chance": 70.0},
+            {"monster_id": "flaretoad", "chance": 30.0}
+        ],
+        "sproutling:sproutling": [
+            {"monster_id": "sproutling", "chance": 80.0},
+            {"monster_id": "mossback", "chance": 20.0}
+        ],
+        "embercub:embercub": [
+            {"monster_id": "embercub", "chance": 75.0},
+            {"monster_id": "stormwing", "chance": 25.0}
+        ],
+        "embercub:tidehorn": [
+            {"monster_id": "tidehorn", "chance": 45.0},
+            {"monster_id": "reefclaw", "chance": 40.0},
+            {"monster_id": "flaretoad", "chance": 15.0}
+        ],
+        "mossback:sproutling": [
+            {"monster_id": "mossback", "chance": 70.0},
+            {"monster_id": "thornhide", "chance": 30.0}
+        ],
+        "cloudram:stormwing": [
+            {"monster_id": "stormwing", "chance": 65.0},
+            {"monster_id": "cloudram", "chance": 25.0},
+            {"monster_id": "voltica", "chance": 10.0}
+        ],
+        "flaretoad:stormwing": [
+            {"monster_id": "flaretoad", "chance": 50.0},
+            {"monster_id": "stormwing", "chance": 35.0},
+            {"monster_id": "voltica", "chance": 15.0}
+        ],
+        "reefclaw:tidehorn": [
+            {"monster_id": "reefclaw", "chance": 70.0},
+            {"monster_id": "tidehorn", "chance": 20.0},
+            {"monster_id": "cloudram", "chance": 10.0}
+        ]
+    }
+    if recipes.has(key):
+        return recipes[key]
+
+    var fallback: Array[Dictionary] = [
+        {"monster_id": a, "chance": 45.0},
+        {"monster_id": b, "chance": 45.0}
+    ]
+    var rare_candidates := ["tidehorn", "stormwing", "flaretoad", "reefclaw"]
+    for candidate in rare_candidates:
+        if candidate != a and candidate != b:
+            fallback.append({"monster_id": candidate, "chance": 10.0})
+            break
+    return fallback
+
+static func choose_breeding_result(a: String, b: String, rng: RandomNumberGenerator) -> String:
+    var candidates := breeding_results(a, b)
+    var roll := rng.randf_range(0.0, 100.0)
+    var cursor := 0.0
+    for candidate in candidates:
+        cursor += float(candidate.get("chance", 0.0))
+        if roll <= cursor:
+            return str(candidate.get("monster_id", a))
+    return str(candidates.back().get("monster_id", a))
+
+static func _breeding_key(a: String, b: String) -> String:
+    var ids := [a, b]
+    ids.sort()
+    return "%s:%s" % [ids[0], ids[1]]
+
 static func effectiveness(attacking_element: String, defending_element: String) -> float:
     if attacking_element == "Fire" and defending_element == "Nature":
         return 1.5
