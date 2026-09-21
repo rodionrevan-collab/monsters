@@ -5,6 +5,8 @@ signal log_message(message: String)
 
 const SAVE_PATH := "user://monster_islands_save.json"
 const MAX_PRODUCTION_SECONDS := 8 * 60 * 60
+const MAX_MONSTER_LEVEL := 50
+const MAX_MONSTER_RANK := 5
 
 var gold: int = 5000
 var gems: int = 50
@@ -15,6 +17,7 @@ var developer_mode: bool = false
 var selected_stage: int = 1
 var campaign_stage: int = 1
 var completed_stages: Array = []
+var selected_monster: int = 0
 
 var monsters: Array[Dictionary] = []
 var habitats: Array[Dictionary] = []
@@ -65,6 +68,7 @@ func _make_monster(monster_id: String, nickname: String) -> Dictionary:
         "nickname": nickname,
         "level": 1,
         "xp": 0,
+        "rank": 1,
         "hp": int(data.get("base_hp", 100)),
         "attack": int(data.get("base_attack", 25))
     }
@@ -183,34 +187,93 @@ func collect_production() -> void:
 func feed_monster(index: int, amount: int = 1) -> bool:
     if index < 0 or index >= monsters.size():
         return false
-    var total_cost := amount * 10
+    var monster: Dictionary = monsters[index]
+    var level_now := int(monster.get("level", 1))
+    if level_now >= MAX_MONSTER_LEVEL:
+        log_message.emit("%s is already level %d." % [monster["nickname"], MAX_MONSTER_LEVEL])
+        return false
+
+    var total_cost := feeding_cost(monster, amount)
     if not developer_mode and food < total_cost:
-        log_message.emit("Not enough food.")
+        log_message.emit("Need %d food." % total_cost)
         return false
     if not developer_mode:
         food -= total_cost
-    var monster: Dictionary = monsters[index]
-    monster["xp"] = int(monster.get("xp", 0)) + amount * 25
-    while int(monster["xp"]) >= xp_to_next_level(int(monster["level"])):
+
+    monster["xp"] = int(monster.get("xp", 0)) + feeding_xp(monster, amount)
+    while int(monster["xp"]) >= xp_to_next_level(int(monster["level"])) and int(monster["level"]) < MAX_MONSTER_LEVEL:
         monster["xp"] = int(monster["xp"]) - xp_to_next_level(int(monster["level"]))
         monster["level"] = int(monster["level"]) + 1
         _recalculate_stats(monster)
         xp += 10
         log_message.emit("%s reached level %d." % [monster["nickname"], monster["level"]])
+
+    if int(monster["level"]) >= MAX_MONSTER_LEVEL:
+        monster["xp"] = 0
+
     monsters[index] = monster
     _emit_state()
     save_game()
     return true
 
+func feeding_cost(monster: Dictionary, amount: int = 1) -> int:
+    var lv := int(monster.get("level", 1))
+    return amount * (10 + lv * 5)
+
+func feeding_xp(monster: Dictionary, amount: int = 1) -> int:
+    var lv := int(monster.get("level", 1))
+    return amount * (25 + lv * 10)
+
 func xp_to_next_level(monster_level: int) -> int:
     return 100 + monster_level * 75
+
+func rank_upgrade_cost(monster: Dictionary) -> Dictionary:
+    var rank := int(monster.get("rank", 1))
+    return {
+        "gold": rank * 1000,
+        "food": rank * 500
+    }
+
+func rank_level_requirement(rank: int) -> int:
+    return 5 + rank * 5
+
+func can_rank_up(index: int) -> bool:
+    if index < 0 or index >= monsters.size():
+        return false
+    var monster: Dictionary = monsters[index]
+    var rank := int(monster.get("rank", 1))
+    if rank >= MAX_MONSTER_RANK:
+        return false
+    return int(monster.get("level", 1)) >= rank_level_requirement(rank)
+
+func rank_up_monster(index: int) -> bool:
+    if not can_rank_up(index):
+        log_message.emit("Monster needs level %d for its next rank." % rank_level_requirement(int(monsters[index].get("rank", 1))) if index >= 0 and index < monsters.size() else "Monster cannot rank up.")
+        return false
+    var monster: Dictionary = monsters[index]
+    var cost := rank_upgrade_cost(monster)
+    if not developer_mode and (gold < int(cost["gold"]) or food < int(cost["food"])):
+        log_message.emit("Need %d gold and %d food to rank up." % [cost["gold"], cost["food"]])
+        return false
+    if not developer_mode:
+        gold -= int(cost["gold"])
+        food -= int(cost["food"])
+    monster["rank"] = int(monster.get("rank", 1)) + 1
+    _recalculate_stats(monster)
+    monsters[index] = monster
+    log_message.emit("%s reached rank %d." % [monster["nickname"], monster["rank"]])
+    _emit_state()
+    save_game()
+    return true
 
 func _recalculate_stats(monster: Dictionary) -> void:
     var data: Dictionary = MonsterDatabase.get_monster(str(monster["id"]))
     var lv := int(monster["level"])
+    var rank := int(monster.get("rank", 1))
     var growth := float(data.get("growth", 1.18))
-    monster["hp"] = int(float(data.get("base_hp", 100)) * pow(growth, lv - 1))
-    monster["attack"] = int(float(data.get("base_attack", 25)) * pow(growth, lv - 1))
+    var rank_multiplier := 1.0 + float(rank - 1) * 0.15
+    monster["hp"] = int(float(data.get("base_hp", 100)) * pow(growth, lv - 1) * rank_multiplier)
+    monster["attack"] = int(float(data.get("base_attack", 25)) * pow(growth, lv - 1) * rank_multiplier)
 
 func building_upgrade_cost(index: int) -> int:
     if index < 0 or index >= buildings.size():
@@ -390,6 +453,7 @@ func save_game() -> void:
         "xp": xp,
         "developer_mode": developer_mode,
         "selected_stage": selected_stage,
+        "selected_monster": selected_monster,
         "campaign_stage": campaign_stage,
         "completed_stages": completed_stages,
         "monsters": monsters,
@@ -417,6 +481,12 @@ func load_game() -> void:
         xp = int(parsed.get("xp", xp))
         developer_mode = bool(parsed.get("developer_mode", false))
         selected_stage = int(parsed.get("selected_stage", selected_stage))
+        selected_monster = int(parsed.get("selected_monster", selected_monster))
+        for i in monsters.size():
+            var saved_monster: Dictionary = monsters[i]
+            if not saved_monster.has("rank"):
+                saved_monster["rank"] = 1
+            monsters[i] = saved_monster
         campaign_stage = int(parsed.get("campaign_stage", campaign_stage))
         completed_stages = parsed.get("completed_stages", [])
         monsters = parsed.get("monsters", [])
