@@ -127,11 +127,13 @@ func _build_ui() -> void:
     island_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     island_canvas.add_child(island_art)
 
-    var island_title2 := _make_label("GREEN ISLE", 20)
+    var island_title2 := _make_label("", 20)
+    island_title2.text = GameState.current_island_name().to_upper()
     island_title2.position = Vector2(20, 16)
     island_art.add_child(island_title2)
 
-    var island_hint := _make_label("Habitat district", 13)
+    var island_hint := _make_label("", 13)
+    island_hint.text = "%s district" % GameState.current_island_theme()
     island_hint.position = Vector2(20, 48)
     island_hint.modulate = Color("#b8d8ca")
     island_art.add_child(island_hint)
@@ -470,6 +472,9 @@ func _build_farm() -> void:
 
 func _upgrade_building(index: int) -> void:
     GameState.upgrade_building(index)
+
+func _open_islands() -> void:
+    get_tree().change_scene_to_file("res://scenes/IslandManager.tscn")
 
 func _open_book() -> void:
     get_tree().change_scene_to_file("res://scenes/MonsterBook.tscn")
