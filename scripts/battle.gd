@@ -443,12 +443,23 @@ func _finish_battle(victory: bool) -> void:
     player_turn = false
 
     if victory:
-        var reward := GameState.complete_stage(stage)
+        var defeated := 0
+        for hp in player_hp:
+            if hp <= 0:
+                defeated += 1
+        var stars := 1
+        if defeated == 0:
+            stars = 3
+        elif defeated == 1:
+            stars = 2
+
+        var reward := GameState.complete_stage(stage, stars)
         if reward.is_empty():
-            _log("VICTORY! Stage %d already completed." % stage)
+            _log("VICTORY! Stage %d completed with %d stars." % [stage, stars])
         else:
-            _log("VICTORY! Stage %d cleared. +%d gold, +%d food, +%d XP." % [
+            _log("VICTORY! Stage %d • %d★ • +%d gold, +%d food, +%d XP." % [
                 stage,
+                stars,
                 int(reward.get("gold", 0)),
                 int(reward.get("food", 0)),
                 int(reward.get("xp", 0))
