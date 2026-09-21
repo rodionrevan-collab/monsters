@@ -209,13 +209,13 @@ func _build_ui() -> void:
     breed_root.offset_top = 12
     breed_root.offset_right = -14
     breed_root.offset_bottom = -12
-    breed_root.add_theme_constant_override("separation", 7)
+    breed_root.add_theme_constant_override("separation", 5)
     breed_panel.add_child(breed_root)
 
     var breed_title := _make_label("BREEDING LAB", 20)
     breed_root.add_child(breed_title)
 
-    var breed_hint := _make_label("Choose parents with A and B.", 12)
+    var breed_hint := _make_label("Two breeding slots • select parents with A and B.", 12)
     breed_hint.modulate = Color("#9fb0c8")
     breed_root.add_child(breed_hint)
 
@@ -226,19 +226,20 @@ func _build_ui() -> void:
     breed_button.pressed.connect(_start_breeding)
     breed_actions.add_child(breed_button)
 
-    var claim_button := _make_button("Claim Egg", 120)
-    claim_button.pressed.connect(_claim_breed)
-    breed_actions.add_child(claim_button)
+    var claim_1 := _make_button("Claim #1", 88)
+    claim_1.pressed.connect(_claim_breed_slot.bind(0))
+    breed_actions.add_child(claim_1)
 
-    var hatch_button := _make_button("Hatch", 100)
-    hatch_button.pressed.connect(_hatch)
-    breed_actions.add_child(hatch_button)
+    var claim_2 := _make_button("Claim #2", 88)
+    claim_2.pressed.connect(_claim_breed_slot.bind(1))
+    breed_actions.add_child(claim_2)
 
     breeding_status = _make_label("", 12)
     breed_root.add_child(breeding_status)
 
-    incubation_status = _make_label("", 12)
-    breed_root.add_child(incubation_status)
+    var egg_button := _make_button("Open Egg Collection / Incubators", 250)
+    egg_button.pressed.connect(_open_incubator)
+    breed_root.add_child(egg_button)
 
     activity_label = _make_label("", 12)
     activity_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -412,19 +413,14 @@ func _refresh_monsters() -> void:
 
 func _refresh_timers() -> void:
     if breeding_status:
-        if GameState.breeding.is_empty():
-            breeding_status.text = "Breeding: empty"
-        else:
-            breeding_status.text = "Breeding: %s" % _remaining_text(int(GameState.breeding.get("ready_at", 0)))
-    if incubation_status:
-        if GameState.incubating.is_empty():
-            incubation_status.text = "Incubator: empty"
-        else:
-            var data: Dictionary = MonsterDatabase.get_monster(str(GameState.incubating.get("monster_id", "")))
-            incubation_status.text = "Egg: %s • %s" % [
-                str(data.get("name", "Unknown")),
-                _remaining_text(int(GameState.incubating.get("ready_at", 0)))
-            ]
+        var lines: Array[String] = []
+        for i in GameState.breeding_slots.size():
+            var slot: Dictionary = GameState.breeding_slots[i]
+            if slot.is_empty():
+                lines.append("Slot %d: empty" % (i + 1))
+            else:
+                lines.append("Slot %d: %s" % [(i + 1), _remaining_text(int(slot.get("ready_at", 0)))])
+        breeding_status.text = "\n".join(lines)
 
 func _remaining_text(target: int) -> String:
     if GameState.developer_mode:
@@ -457,12 +453,14 @@ func _start_breeding() -> void:
     GameState.start_breeding(selected_a, selected_b)
 
 func _claim_breed() -> void:
-    if not GameState.claim_breeding():
-        _show_log("The breeding result is not ready yet.")
+    _claim_breed_slot(-1)
+
+func _claim_breed_slot(slot_index: int) -> void:
+    if not GameState.claim_breeding(slot_index):
+        _show_log("That breeding slot is not ready yet.")
 
 func _hatch() -> void:
-    if not GameState.claim_incubation():
-        _show_log("The egg is not ready yet.")
+    get_tree().change_scene_to_file("res://scenes/Incubator.tscn")
 
 func _collect_production() -> void:
     GameState.collect_production()
