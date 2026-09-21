@@ -37,19 +37,19 @@ func _set_palette() -> void:
             body_color = Color("#737b8e")
 
 func _draw() -> void:
-    var center := size * 0.5
-    var radius := min(size.x, size.y) * 0.43
+    var center: Vector2 = size * 0.5
+    var radius: float = min(size.x, size.y) * 0.43
 
     draw_circle(center, radius, Color("#0d1726"))
     draw_arc(center, radius, 0.0, TAU, 40, accent, 3.0)
 
-    var body_center := center + Vector2(0, 5)
-    var body_radius := radius * 0.68
+    var body_center: Vector2 = center + Vector2(0, 5)
+    var body_radius: float = radius * 0.68
 
     if rarity == "Epic":
         var spikes := PackedVector2Array()
         for i in 8:
-            var a := TAU * float(i) / 8.0
+            var a: float = TAU * float(i) / 8.0
             spikes.append(body_center + Vector2(cos(a), sin(a)) * body_radius * 1.08)
         draw_colored_polygon(spikes, body_color)
     elif rarity == "Rare":
@@ -57,15 +57,15 @@ func _draw() -> void:
     else:
         draw_circle(body_center, body_radius * 0.9, body_color)
 
-    var eye_y := body_center.y - body_radius * 0.12
-    var eye_dx := body_radius * 0.28
+    var eye_y: float = body_center.y - body_radius * 0.12
+    var eye_dx: float = body_radius * 0.28
     draw_circle(Vector2(body_center.x - eye_dx, eye_y), 4.0, Color.WHITE)
     draw_circle(Vector2(body_center.x + eye_dx, eye_y), 4.0, Color.WHITE)
     draw_circle(Vector2(body_center.x - eye_dx + 1, eye_y + 1), 1.8, Color("#111827"))
     draw_circle(Vector2(body_center.x + eye_dx + 1, eye_y + 1), 1.8, Color("#111827"))
 
-    var mouth_left := body_center + Vector2(-body_radius * 0.2, body_radius * 0.34)
-    var mouth_right := body_center + Vector2(body_radius * 0.2, body_radius * 0.34)
+    var mouth_left: Vector2 = body_center + Vector2(-body_radius * 0.2, body_radius * 0.34)
+    var mouth_right: Vector2 = body_center + Vector2(body_radius * 0.2, body_radius * 0.34)
     draw_line(mouth_left, mouth_right, Color("#1a2230"), 2.0)
 
     if element == "Fire":
