@@ -87,3 +87,14 @@ Use original monster names, designs, artwork, UI and lore. Reproduce the genre's
 - Eggs can be loaded into any free incubator
 - Incubation time depends on the resulting monster
 - Legacy single breeding/incubation saves migrate into the new slots
+
+
+## Islands & territory
+
+- Green Isle is the starter island with Nature and Fire habitats.
+- Azure Atoll unlocks at island level 8 for 10000 gold.
+- Azure Atoll starts with Water and Air habitats.
+- Each island stores its own buildings, habitats and production timers.
+- Monster collection remains shared across islands.
+- Island territory has its own building-slot limit and expansion cost.
+- Island switching persists the previous island before loading the next one.
