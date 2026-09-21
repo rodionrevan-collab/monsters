@@ -26,31 +26,39 @@ func _ready() -> void:
     _log("Choose a target, then use one of the four skills.")
 
 func _setup_teams() -> void:
-    var count := mini(3, GameState.monsters.size())
-    for i in count:
-        var m: Dictionary = GameState.monsters[i]
-        var data: Dictionary = MonsterDatabase.get_monster(str(m.get("id", "")))
-        player_team.append({
-            "id": str(m.get("id", "")),
-            "name": str(m.get("nickname", "Monster")),
-            "element": str(data.get("element", "Unknown")),
-            "hp": int(m.get("hp", 100)),
-            "max_hp": int(m.get("hp", 100)),
-            "attack": int(m.get("attack", 25))
-        })
-        player_hp.append(int(m.get("hp", 100)))
-        skill_cooldowns.append([0, 0, 0, 0])
+    var selected: Array = GameState.valid_battle_team()
+    if selected.is_empty():
+        for i in mini(3, GameState.monsters.size()):
+            selected.append(i)
+        for slot in selected.size():
+            GameState.set_battle_slot(slot, int(selected[slot]))
 
-    while player_team.size() < 3:
-        player_team.append({
-            "id": "",
-            "name": "Empty Slot",
-            "element": "-",
-            "hp": 0,
-            "max_hp": 0,
-            "attack": 0
-        })
-        player_hp.append(0)
+    for i in 3:
+        var monster_index := int(selected[i]) if i < selected.size() else -1
+        if monster_index >= 0 and monster_index < GameState.monsters.size():
+            var m: Dictionary = GameState.monsters[monster_index]
+            var data: Dictionary = MonsterDatabase.get_monster(str(m.get("id", "")))
+            player_team.append({
+                "id": str(m.get("id", "")),
+                "name": str(m.get("nickname", "Monster")),
+                "element": str(data.get("element", "Unknown")),
+                "hp": int(m.get("hp", 100)),
+                "max_hp": int(m.get("hp", 100)),
+                "attack": int(m.get("attack", 25)),
+                "monster_index": monster_index
+            })
+            player_hp.append(int(m.get("hp", 100)))
+        else:
+            player_team.append({
+                "id": "",
+                "name": "Empty Slot",
+                "element": "-",
+                "hp": 0,
+                "max_hp": 0,
+                "attack": 0,
+                "monster_index": -1
+            })
+            player_hp.append(0)
         skill_cooldowns.append([0, 0, 0, 0])
 
     var scale := 1.0 + float(stage - 1) * 0.08
