@@ -173,6 +173,10 @@ func _build_ui() -> void:
     team_button.pressed.connect(_open_team)
     island_bottom.add_child(team_button)
 
+    var arena_button := _make_button("Arena", 90)
+    arena_button.pressed.connect(_open_arena)
+    island_bottom.add_child(arena_button)
+
     var island_note := _make_label("Expand islands to unlock more building slots.", 12)
     island_note.modulate = Color("#8aa99c")
     island_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -500,6 +504,9 @@ func _open_quests() -> void:
 
 func _open_team() -> void:
     get_tree().change_scene_to_file("res://scenes/Team.tscn")
+
+func _open_arena() -> void:
+    get_tree().change_scene_to_file("res://scenes/Arena.tscn")
 
 func _open_book() -> void:
     get_tree().change_scene_to_file("res://scenes/MonsterBook.tscn")
