@@ -2,9 +2,10 @@ extends Control
 
 var status: Label
 var egg_panel: VBoxContainer
+var timer_label: Label
 
 func _process(_delta: float) -> void:
-    _refresh()
+    _refresh_timer()
 
 func _ready() -> void:
     _build_ui()
@@ -83,12 +84,18 @@ func _refresh() -> void:
     egg_panel.add_child(_label(str(data.get("name", "Unknown Egg")), 30))
     egg_panel.add_child(_label("Rarity: %s" % str(data.get("rarity", "Unknown")), 15))
     egg_panel.add_child(_label("Element: %s" % str(data.get("element", "Unknown")), 15))
-    egg_panel.add_child(_label("Hatch timer: %s" % remaining, 18))
+    timer_label = _label("", 18)
+    egg_panel.add_child(timer_label)
 
     var lore := _label(str(data.get("lore", "")), 13)
     lore.modulate = Color("#a9bad1")
     lore.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     egg_panel.add_child(lore)
+
+func _refresh_timer() -> void:
+    if not timer_label or GameState.incubating.is_empty():
+        return
+    timer_label.text = "Hatch timer: %s" % _remaining_text(int(GameState.incubating.get("ready_at", 0)))
 
 func _hatch() -> void:
     if not GameState.claim_incubation():
