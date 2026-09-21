@@ -161,6 +161,14 @@ func _build_ui() -> void:
     farm.pressed.connect(_build_farm)
     island_bottom.add_child(farm)
 
+    var shop_button := _make_button("Shop", 90)
+    shop_button.pressed.connect(_open_shop)
+    island_bottom.add_child(shop_button)
+
+    var quests_button := _make_button("Quests", 90)
+    quests_button.pressed.connect(_open_quests)
+    island_bottom.add_child(quests_button)
+
     var island_note := _make_label("More island slots unlock as progression expands.", 12)
     island_note.modulate = Color("#8aa99c")
     island_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -479,6 +487,12 @@ func _upgrade_building(index: int) -> void:
 
 func _open_islands() -> void:
     get_tree().change_scene_to_file("res://scenes/IslandManager.tscn")
+
+func _open_shop() -> void:
+    get_tree().change_scene_to_file("res://scenes/Shop.tscn")
+
+func _open_quests() -> void:
+    get_tree().change_scene_to_file("res://scenes/Quests.tscn")
 
 func _open_book() -> void:
     get_tree().change_scene_to_file("res://scenes/MonsterBook.tscn")
