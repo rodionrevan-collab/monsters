@@ -247,14 +247,26 @@ func _use_attack(index: int) -> void:
     var base_damage := int(player_team[active_player]["attack"])
     var damage := int(float(base_damage) * multiplier)
 
+    var attacker_element := str(player_team[active_player]["element"])
+    var defender_element := str(enemy_team[target]["element"])
+    var element_multiplier := MonsterDatabase.effectiveness(attacker_element, defender_element)
+    damage = int(float(damage) * element_multiplier)
+
     if index == 2:
         damage += 20
 
+    if element_multiplier > 1.0:
+        _log("%s has elemental advantage." % player_team[active_player]["name"])
+    elif element_multiplier < 1.0:
+        _log("%s is resisted by %s." % [player_team[active_player]["name"], enemy_team[target]["name"]])
+
     enemy_hp[target] = maxi(0, enemy_hp[target] - damage)
-    _log("%s used %s for %d damage." % [
+    _log("%s used %s for %d damage. %s -> %s." % [
         player_team[active_player]["name"],
         ["Basic Attack", "Power Strike", "Element Burst"][index],
-        damage
+        damage,
+        attacker_element,
+        defender_element
     ])
     _refresh_ui()
 
