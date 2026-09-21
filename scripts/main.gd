@@ -67,6 +67,10 @@ func _build_ui() -> void:
     dev_check.toggled.connect(_toggle_dev)
     header_row.add_child(dev_check)
 
+    var book := _make_button("Monster Book", 145)
+    book.pressed.connect(_open_book)
+    header_row.add_child(book)
+
     var campaign := _make_button("Campaign", 125)
     campaign.pressed.connect(_open_campaign)
     header_row.add_child(campaign)
@@ -442,6 +446,9 @@ func _build_farm() -> void:
 
 func _upgrade_building(index: int) -> void:
     GameState.upgrade_building(index)
+
+func _open_book() -> void:
+    get_tree().change_scene_to_file("res://scenes/MonsterBook.tscn")
 
 func _open_campaign() -> void:
     get_tree().change_scene_to_file("res://scenes/Campaign.tscn")
