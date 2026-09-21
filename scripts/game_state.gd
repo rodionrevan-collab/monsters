@@ -248,7 +248,11 @@ func can_rank_up(index: int) -> bool:
 
 func rank_up_monster(index: int) -> bool:
     if not can_rank_up(index):
-        log_message.emit("Monster needs level %d for its next rank." % rank_level_requirement(int(monsters[index].get("rank", 1))) if index >= 0 and index < monsters.size() else "Monster cannot rank up.")
+        if index >= 0 and index < monsters.size():
+            var current_rank := int(monsters[index].get("rank", 1))
+            log_message.emit("Monster needs level %d for its next rank." % rank_level_requirement(current_rank))
+        else:
+            log_message.emit("Monster cannot rank up.")
         return false
     var monster: Dictionary = monsters[index]
     var cost := rank_upgrade_cost(monster)
@@ -494,3 +498,7 @@ func load_game() -> void:
         buildings = parsed.get("buildings", [])
         breeding = parsed.get("breeding", {})
         incubating = parsed.get("incubating", {})
+        if monsters.is_empty():
+            selected_monster = 0
+        else:
+            selected_monster = clampi(selected_monster, 0, monsters.size() - 1)
