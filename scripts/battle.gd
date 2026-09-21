@@ -16,8 +16,10 @@ var reward_box: VBoxContainer
 
 var battle_over: bool = false
 var player_turn: bool = true
+var stage: int = 1
 
 func _ready() -> void:
+    stage = clampi(GameState.selected_stage, 1, 30)
     _setup_teams()
     _build_ui()
     _refresh_ui()
@@ -47,10 +49,11 @@ func _setup_teams() -> void:
         })
         player_hp.append(0)
 
+    var scale := 1.0 + float(stage - 1) * 0.08
     enemy_team = [
-        {"name": "Stonefang", "element": "Earth", "hp": 260, "max_hp": 260, "attack": 45},
-        {"name": "Ashbeetle", "element": "Fire", "hp": 210, "max_hp": 210, "attack": 52},
-        {"name": "Mistfin", "element": "Water", "hp": 230, "max_hp": 230, "attack": 48}
+        {"name": "Stonefang", "element": "Nature", "hp": int(260 * scale), "max_hp": int(260 * scale), "attack": int(45 * scale)},
+        {"name": "Ashbeetle", "element": "Fire", "hp": int(210 * scale), "max_hp": int(210 * scale), "attack": int(52 * scale)},
+        {"name": "Mistfin", "element": "Water", "hp": int(230 * scale), "max_hp": int(230 * scale), "attack": int(48 * scale)}
     ]
     for enemy in enemy_team:
         enemy_hp.append(int(enemy["hp"]))
@@ -72,7 +75,7 @@ func _build_ui() -> void:
     root.add_child(header)
 
     var title := Label.new()
-    title.text = "ADVENTURE • WILD ARENA"
+    title.text = "STAGE %02d • WILD ARENA" % stage
     title.add_theme_font_size_override("font_size", 25)
     title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     header.add_child(title)
@@ -335,19 +338,23 @@ func _finish_battle(victory: bool) -> void:
     battle_over = true
     player_turn = false
     if victory:
-        var gold_reward := 600
-        var food_reward := 250
-        GameState.gold += gold_reward
-        GameState.food += food_reward
-        GameState.xp += 50
-        _log("VICTORY! Rewards: %d gold, %d food, 50 island XP." % [gold_reward, food_reward])
+        var reward := GameState.complete_stage(stage)
+        if reward.is_empty():
+            _log("VICTORY! Stage %d already completed." % stage)
+        else:
+            _log("VICTORY! Stage %d cleared. +%d gold, +%d food, +%d XP." % [
+                stage,
+                int(reward.get("gold", 0)),
+                int(reward.get("food", 0)),
+                int(reward.get("xp", 0))
+            ])
     else:
         _log("DEFEAT. Train your monsters and try again.")
     _refresh_ui()
 
 func _return_to_island() -> void:
     GameState.save_game()
-    get_tree().change_scene_to_file("res://scenes/Main.tscn")
+    get_tree().change_scene_to_file("res://scenes/Campaign.tscn")
 
 func _log(message: String) -> void:
     if battle_log:
