@@ -67,6 +67,10 @@ func _build_ui() -> void:
     dev_check.toggled.connect(_toggle_dev)
     header_row.add_child(dev_check)
 
+    var adventure := _make_button("Adventure", 125)
+    adventure.pressed.connect(_open_adventure)
+    header_row.add_child(adventure)
+
     var body := HBoxContainer.new()
     body.size_flags_vertical = Control.SIZE_EXPAND_FILL
     body.add_theme_constant_override("separation", 12)
@@ -434,6 +438,9 @@ func _build_farm() -> void:
 
 func _upgrade_building(index: int) -> void:
     GameState.upgrade_building(index)
+
+func _open_adventure() -> void:
+    get_tree().change_scene_to_file("res://scenes/Battle.tscn")
 
 func _toggle_dev(enabled: bool) -> void:
     if enabled:
