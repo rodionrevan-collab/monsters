@@ -31,6 +31,11 @@ var egg_inventory: Array = []
 var incubators: Array = []
 var islands: Array = []
 var selected_island: int = 0
+var quest_progress: Dictionary = {}
+var claimed_quests: Array = []
+var claimed_achievements: Array = []
+var last_daily_reward_date: String = ""
+var daily_reward_streak: int = 0
 const MAX_BREEDING_SLOTS := 2
 const MAX_INCUBATORS := 3
 
@@ -67,6 +72,11 @@ func _create_new_game() -> void:
     incubators = [{}, {}, {}]
     islands = []
     selected_island = 0
+    quest_progress = {}
+    claimed_quests = []
+    claimed_achievements = []
+    last_daily_reward_date = ""
+    daily_reward_streak = 0
 
 func _create_initial_islands(now: int) -> void:
     islands = [
@@ -576,6 +586,55 @@ func quest_definitions() -> Array[Dictionary]:
         {"id": "upgrade_3", "title": "Bigger Island", "description": "Upgrade buildings 3 times.", "action": "upgrade", "goal": 3, "gold": 1400, "food": 450, "gems": 5},
         {"id": "island_2", "title": "Across the Sea", "description": "Unlock the second island.", "action": "island_unlock", "goal": 1, "gold": 1800, "food": 600, "gems": 8}
     ]
+
+func achievement_definitions() -> Array[Dictionary]:
+    return [
+        {"id": "collector_5", "title": "Growing Collection", "description": "Hatch 3 new monsters.", "action": "hatch", "goal": 3, "gold": 1500, "gems": 5},
+        {"id": "battle_10", "title": "Campaign Explorer", "description": "Win 10 campaign stages.", "action": "battle", "goal": 10, "gold": 2500, "gems": 10},
+        {"id": "feed_25", "title": "Monster Caretaker", "description": "Feed monsters 25 times.", "action": "feed", "goal": 25, "gold": 1800, "food": 1000, "gems": 8},
+        {"id": "breed_10", "title": "Master Breeder", "description": "Start 10 breeding jobs.", "action": "breed", "goal": 10, "gold": 2200, "gems": 8},
+        {"id": "build_10", "title": "Master Builder", "description": "Build 10 new buildings.", "action": "build", "goal": 10, "gold": 3000, "gems": 10},
+        {"id": "upgrade_10", "title": "Island Architect", "description": "Upgrade buildings 10 times.", "action": "upgrade", "goal": 10, "gold": 3500, "gems": 12}
+    ]
+
+func achievement_status(achievement_id: String) -> Dictionary:
+    for achievement in achievement_definitions():
+        if str(achievement.get("id", "")) == achievement_id:
+            var progress := int(quest_progress.get(str(achievement.get("action", "")), 0))
+            var goal := int(achievement.get("goal", 1))
+            return {
+                "progress": mini(progress, goal),
+                "goal": goal,
+                "completed": progress >= goal,
+                "claimed": claimed_achievements.has(achievement_id)
+            }
+    return {}
+
+func claim_achievement(achievement_id: String) -> bool:
+    if claimed_achievements.has(achievement_id):
+        return false
+
+    var achievement: Dictionary = {}
+    for entry in achievement_definitions():
+        if str(entry.get("id", "")) == achievement_id:
+            achievement = entry
+            break
+    if achievement.is_empty():
+        return false
+
+    var state := achievement_status(achievement_id)
+    if not bool(state.get("completed", false)):
+        return false
+
+    gold += int(achievement.get("gold", 0))
+    food += int(achievement.get("food", 0))
+    gems += int(achievement.get("gems", 0))
+    claimed_achievements.append(achievement_id)
+    log_message.emit("Achievement claimed: %s." % achievement.get("title", achievement_id))
+    _emit_state()
+    save_game()
+    return true
+
 
 func record_action(action: String, amount: int = 1) -> void:
     quest_progress[action] = int(quest_progress.get(action, 0)) + amount
