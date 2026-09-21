@@ -529,6 +529,152 @@ func build_farm() -> bool:
     save_game()
     return true
 
+func can_build_item(item_id: String) -> bool:
+    var item: Dictionary = BuildingCatalog.get_item(item_id)
+    if item.is_empty():
+        return false
+    if level < int(item.get("level", 1)):
+        return false
+    if island_building_slots_used() >= island_building_slots_max():
+        return false
+    return developer_mode or gold >= int(item.get("cost", 999999999))
+
+func build_item(item_id: String) -> bool:
+    if not can_build_item(item_id):
+        var item: Dictionary = BuildingCatalog.get_item(item_id)
+        if item.is_empty():
+            log_message.emit("Unknown shop item.")
+        elif level < int(item.get("level", 1)):
+            log_message.emit("Reach level %d to build %s." % [int(item.get("level", 1)), item.get("name", item_id)])
+        elif island_building_slots_used() >= island_building_slots_max():
+            log_message.emit("Expand the island to create more building slots.")
+        else:
+            log_message.emit("Need %d gold." % int(item.get("cost", 0)))
+        return false
+
+    var item: Dictionary = BuildingCatalog.get_item(item_id)
+    var cost := int(item.get("cost", 0))
+    if not developer_mode:
+        gold -= cost
+
+    var now := int(Time.get_unix_time_from_system())
+    var serial := int(Time.get_unix_time_from_system()) + buildings.size()
+    var type := str(item.get("type", ""))
+    var building_id := "%s_%d_%d" % [item_id, selected_island, serial]
+
+    buildings.append({
+        "id": building_id,
+        "type": type,
+        "name": str(item.get("name", item_id)),
+        "element": str(item.get("element", "")),
+        "level": 1,
+        "capacity": int(item.get("capacity", 0)),
+        "gold_per_minute": int(item.get("gold_per_minute", 0)),
+        "food_per_minute": int(item.get("food_per_minute", 0)),
+        "last_tick": now
+    })
+
+    if type == "habitat":
+        habitats.append({
+            "id": building_id + "_habitat",
+            "name": str(item.get("name", "Habitat")),
+            "element": str(item.get("element", "")),
+            "capacity": int(item.get("capacity", 2)),
+            "monsters": [],
+            "building_id": building_id
+        })
+
+    _save_active_island()
+    record_action("build", 1)
+    log_message.emit("%s built." % item.get("name", item_id))
+    _emit_state()
+    save_game()
+    return true
+
+func quest_definitions() -> Array[Dictionary]:
+    return [
+        {"id": "feed_5", "title": "First Training", "description": "Feed monsters 5 times.", "action": "feed", "goal": 5, "gold": 500, "food": 250, "gems": 2},
+        {"id": "breed_2", "title": "Pairing Season", "description": "Start breeding 2 times.", "action": "breed", "goal": 2, "gold": 700, "food": 300, "gems": 3},
+        {"id": "hatch_2", "title": "New Arrivals", "description": "Hatch 2 monsters.", "action": "hatch", "goal": 2, "gold": 900, "food": 400, "gems": 4},
+        {"id": "battle_3", "title": "Arena Rookie", "description": "Win 3 campaign battles.", "action": "battle", "goal": 3, "gold": 1200, "food": 500, "gems": 5},
+        {"id": "build_3", "title": "Island Builder", "description": "Build 3 new buildings.", "action": "build", "goal": 3, "gold": 1000, "food": 350, "gems": 4},
+        {"id": "upgrade_3", "title": "Bigger Island", "description": "Upgrade buildings 3 times.", "action": "upgrade", "goal": 3, "gold": 1400, "food": 450, "gems": 5},
+        {"id": "island_2", "title": "Across the Sea", "description": "Unlock the second island.", "action": "island_unlock", "goal": 1, "gold": 1800, "food": 600, "gems": 8}
+    ]
+
+func record_action(action: String, amount: int = 1) -> void:
+    quest_progress[action] = int(quest_progress.get(action, 0)) + amount
+    _emit_state()
+
+func quest_status(quest_id: String) -> Dictionary:
+    for quest in quest_definitions():
+        if str(quest.get("id", "")) == quest_id:
+            var progress := int(quest_progress.get(str(quest.get("action", "")), 0))
+            var goal := int(quest.get("goal", 1))
+            return {
+                "progress": mini(progress, goal),
+                "goal": goal,
+                "completed": progress >= goal,
+                "claimed": claimed_quests.has(quest_id)
+            }
+    return {}
+
+func claim_quest(quest_id: String) -> bool:
+    if claimed_quests.has(quest_id):
+        return false
+    var quest: Dictionary = {}
+    for entry in quest_definitions():
+        if str(entry.get("id", "")) == quest_id:
+            quest = entry
+            break
+    if quest.is_empty():
+        return false
+
+    var status := quest_status(quest_id)
+    if not bool(status.get("completed", false)):
+        return false
+
+    gold += int(quest.get("gold", 0))
+    food += int(quest.get("food", 0))
+    gems += int(quest.get("gems", 0))
+    claimed_quests.append(quest_id)
+    log_message.emit("Quest complete: %s." % quest.get("title", quest_id))
+    _emit_state()
+    save_game()
+    return true
+
+func daily_reward_available() -> bool:
+    return Time.get_date_string_from_system() != last_daily_reward_date
+
+func claim_daily_reward() -> bool:
+    var today := Time.get_date_string_from_system()
+    if today == last_daily_reward_date:
+        return false
+
+    if last_daily_reward_date.is_empty():
+        daily_reward_streak = 1
+    else:
+        var previous_unix := Time.get_unix_time_from_datetime_string(last_daily_reward_date + "T00:00:00")
+        var today_unix := Time.get_unix_time_from_datetime_string(today + "T00:00:00")
+        if today_unix - previous_unix <= 172800:
+            daily_reward_streak += 1
+        else:
+            daily_reward_streak = 1
+
+    last_daily_reward_date = today
+    var day := ((daily_reward_streak - 1) % 7) + 1
+    var reward_gold := 500 * day
+    var reward_food := 200 * day
+    var reward_gems := 1 + day
+    gold += reward_gold
+    food += reward_food
+    gems += reward_gems
+    log_message.emit("Daily reward claimed: +%d gold, +%d food, +%d gems." % [reward_gold, reward_food, reward_gems])
+    _emit_state()
+    save_game()
+    return true
+
+
 func can_breed() -> bool:
     if monsters.size() < 2:
         return false
