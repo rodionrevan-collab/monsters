@@ -67,7 +67,11 @@ func _build_ui() -> void:
     dev_check.toggled.connect(_toggle_dev)
     header_row.add_child(dev_check)
 
-    var adventure := _make_button("Adventure", 125)
+    var campaign := _make_button("Campaign", 125)
+    campaign.pressed.connect(_open_campaign)
+    header_row.add_child(campaign)
+
+    var adventure := _make_button("Quick Battle", 125)
     adventure.pressed.connect(_open_adventure)
     header_row.add_child(adventure)
 
@@ -439,7 +443,11 @@ func _build_farm() -> void:
 func _upgrade_building(index: int) -> void:
     GameState.upgrade_building(index)
 
+func _open_campaign() -> void:
+    get_tree().change_scene_to_file("res://scenes/Campaign.tscn")
+
 func _open_adventure() -> void:
+    GameState.selected_stage = 1
     get_tree().change_scene_to_file("res://scenes/Battle.tscn")
 
 func _toggle_dev(enabled: bool) -> void:
