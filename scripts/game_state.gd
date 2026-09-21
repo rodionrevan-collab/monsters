@@ -160,7 +160,8 @@ func _update_production(notify: bool = true) -> void:
             var habitat_index := 0 if str(building.get("id", "")) == "meadow_habitat" else 1
             var occupant_count := 0
             if habitat_index >= 0 and habitat_index < habitats.size():
-                occupant_count = (habitats[habitat_index].get("monsters", []) as Array).size()
+                var occupied: Array = habitats[habitat_index].get("monsters", [])
+                occupant_count = occupied.size()
             gold_rate *= float(occupant_count)
         if gold_rate > 0.0:
             gold += int(minutes * gold_rate)
