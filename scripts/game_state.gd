@@ -302,4 +302,4 @@ func load_game() -> void:
         habitats = parsed.get("habitats", [])
         buildings = parsed.get("buildings", [])
         breeding = parsed.get("breeding", {})
-        incubating = parsed.get("incubating", [])
+        incubating = parsed.get("incubating", {})
