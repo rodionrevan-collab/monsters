@@ -17,6 +17,7 @@ var developer_mode: bool = false
 var selected_stage: int = 1
 var campaign_stage: int = 1
 var completed_stages: Array = []
+var stage_stars: Dictionary = {}
 var selected_monster: int = 0
 var battle_team: Array = [-1, -1, -1]
 
@@ -929,22 +930,39 @@ func stage_reward(stage: int) -> Dictionary:
     var reward_xp := 40 + stage * 10
     return {"gold": reward_gold, "food": reward_food, "xp": reward_xp}
 
-func complete_stage(stage: int) -> Dictionary:
+func complete_stage(stage: int, stars: int = 1) -> Dictionary:
     if stage < 1 or stage > 30:
         return {}
+
+    stars = clampi(stars, 1, 3)
     var reward := stage_reward(stage)
-    if not completed_stages.has(stage):
+    var first_clear := not completed_stages.has(stage)
+    var previous_stars := int(stage_stars.get(str(stage), 0))
+
+    if first_clear:
         completed_stages.append(stage)
+        record_action("battle", 1)
         gold += int(reward.get("gold", 0))
         food += int(reward.get("food", 0))
         xp += int(reward.get("xp", 0))
         campaign_stage = maxi(campaign_stage, stage + 1)
         if xp >= campaign_level_xp():
             level += 1
-        log_message.emit("Stage %d complete! +%d gold, +%d food, +%d XP." % [stage, reward["gold"], reward["food"], reward["xp"]])
-        _emit_state()
-        save_game()
+
+    if stars > previous_stars:
+        stage_stars[str(stage)] = stars
+        if not first_clear and stars == 3:
+            gems += 2
+
+    if first_clear:
+        log_message.emit("Stage %d complete with %d stars!" % [stage, stars])
+    elif stars > previous_stars:
+        log_message.emit("Stage %d improved to %d stars!" % [stage, stars])
+
+    _emit_state()
+    save_game()
     return reward
+
 
 func campaign_level_xp() -> int:
     return 100 + level * 100
@@ -981,6 +999,7 @@ func save_game() -> void:
         "daily_reward_streak": daily_reward_streak,
         "campaign_stage": campaign_stage,
         "completed_stages": completed_stages,
+        "stage_stars": stage_stars,
         "monsters": monsters,
         "habitats": habitats,
         "buildings": buildings,
@@ -1020,6 +1039,7 @@ func load_game() -> void:
         daily_reward_streak = int(parsed.get("daily_reward_streak", 0))
         campaign_stage = int(parsed.get("campaign_stage", campaign_stage))
         completed_stages = parsed.get("completed_stages", [])
+        stage_stars = parsed.get("stage_stars", {})
         monsters = parsed.get("monsters", [])
         habitats = parsed.get("habitats", [])
         buildings = parsed.get("buildings", [])
