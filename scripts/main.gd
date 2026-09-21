@@ -169,7 +169,11 @@ func _build_ui() -> void:
     quests_button.pressed.connect(_open_quests)
     island_bottom.add_child(quests_button)
 
-    var island_note := _make_label("More island slots unlock as progression expands.", 12)
+    var team_button := _make_button("Team", 80)
+    team_button.pressed.connect(_open_team)
+    island_bottom.add_child(team_button)
+
+    var island_note := _make_label("Expand islands to unlock more building slots.", 12)
     island_note.modulate = Color("#8aa99c")
     island_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     island_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -493,6 +497,9 @@ func _open_shop() -> void:
 
 func _open_quests() -> void:
     get_tree().change_scene_to_file("res://scenes/Quests.tscn")
+
+func _open_team() -> void:
+    get_tree().change_scene_to_file("res://scenes/Team.tscn")
 
 func _open_book() -> void:
     get_tree().change_scene_to_file("res://scenes/MonsterBook.tscn")
