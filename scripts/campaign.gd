@@ -75,7 +75,7 @@ func _build_ui() -> void:
 
 func _refresh() -> void:
     if info:
-        info.text = "Unlocked: %d / 30    •    Island Lv.%d" % [GameState.campaign_stage, GameState.level]
+        info.text = "Unlocked: %d / 30    •    Total Stars: %d / 90    •    Island Lv.%d" % [GameState.campaign_stage, _total_stars(), GameState.level]
 
     if not grid:
         return
@@ -96,8 +96,13 @@ func _refresh() -> void:
         elif stage > 10:
             zone = "Mystic Shoals"
 
+        var stars := ""
+        var earned_stars := int(GameState.stage_stars.get(str(stage), 0))
+        for star in 3:
+            stars += "★" if star < earned_stars else "☆"
+
         if completed:
-            button.text = "✓  Stage %02d\n%s\nCOMPLETED" % [stage, zone]
+            button.text = "✓  Stage %02d\n%s\n%s" % [stage, zone, stars]
         elif unlocked:
             button.text = "▶  Stage %02d\n%s\nREADY" % [stage, zone]
         else:
@@ -106,6 +111,12 @@ func _refresh() -> void:
 
         button.pressed.connect(_play_stage.bind(stage))
         grid.add_child(button)
+
+func _total_stars() -> int:
+    var total := 0
+    for stage in range(1, 31):
+        total += int(GameState.stage_stars.get(str(stage), 0))
+    return total
 
 func _play_stage(stage: int) -> void:
     if not GameState.is_stage_unlocked(stage):
