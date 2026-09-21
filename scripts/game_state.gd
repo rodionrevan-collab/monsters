@@ -18,6 +18,7 @@ var selected_stage: int = 1
 var campaign_stage: int = 1
 var completed_stages: Array = []
 var selected_monster: int = 0
+var battle_team: Array = [-1, -1, -1]
 
 var monsters: Array[Dictionary] = []
 var habitats: Array[Dictionary] = []
@@ -722,6 +723,33 @@ func claim_daily_reward() -> bool:
     return true
 
 
+func valid_battle_team() -> Array:
+    var team: Array = []
+    for index in battle_team:
+        if int(index) >= 0 and int(index) < monsters.size() and not team.has(int(index)):
+            team.append(int(index))
+    return team
+
+func set_battle_slot(slot: int, monster_index: int) -> bool:
+    if slot < 0 or slot >= 3:
+        return false
+    if monster_index < -1 or monster_index >= monsters.size():
+        return false
+    if monster_index >= 0:
+        for i in battle_team.size():
+            if i != slot and int(battle_team[i]) == monster_index:
+                battle_team[i] = -1
+    battle_team[slot] = monster_index
+    _emit_state()
+    save_game()
+    return true
+
+func clear_battle_slot(slot: int) -> bool:
+    return set_battle_slot(slot, -1)
+
+func can_enter_battle() -> bool:
+    return valid_battle_team().size() >= 1
+
 func can_breed() -> bool:
     if monsters.size() < 2:
         return false
@@ -944,6 +972,7 @@ func save_game() -> void:
         "selected_stage": selected_stage,
         "selected_monster": selected_monster,
         "selected_island": selected_island,
+        "battle_team": battle_team,
         "islands": islands,
         "quest_progress": quest_progress,
         "claimed_quests": claimed_quests,
@@ -982,6 +1011,7 @@ func load_game() -> void:
         selected_stage = int(parsed.get("selected_stage", selected_stage))
         selected_monster = int(parsed.get("selected_monster", selected_monster))
         selected_island = int(parsed.get("selected_island", selected_island))
+        battle_team = parsed.get("battle_team", [-1, -1, -1])
         islands = parsed.get("islands", [])
         quest_progress = parsed.get("quest_progress", {})
         claimed_quests = parsed.get("claimed_quests", [])
@@ -1000,6 +1030,12 @@ func load_game() -> void:
         incubators = parsed.get("incubators", [])
         if monsters.is_empty():
             selected_monster = 0
+            battle_team = [-1, -1, -1]
+        else:
+            if battle_team.size() != 3:
+                battle_team = [-1, -1, -1]
+            for i in battle_team.size():
+                battle_team[i] = int(battle_team[i])
         else:
             selected_monster = clampi(selected_monster, 0, monsters.size() - 1)
         if breeding_slots.is_empty():
