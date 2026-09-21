@@ -172,7 +172,7 @@ func island_expansion_cost(index: int = selected_island) -> int:
 func can_expand_island(index: int = selected_island) -> bool:
     if index < 0 or index >= islands.size() or not is_island_unlocked(index):
         return false
-    return island_building_slots_used(index) < island_building_slots_max(index) and (developer_mode or gold >= island_expansion_cost(index))
+    return island_building_slots_max(index) < 10 and (developer_mode or gold >= island_expansion_cost(index))
 
 func expand_island(index: int = selected_island) -> bool:
     if not can_expand_island(index):
@@ -785,11 +785,6 @@ func load_game() -> void:
         selected_monster = int(parsed.get("selected_monster", selected_monster))
         selected_island = int(parsed.get("selected_island", selected_island))
         islands = parsed.get("islands", [])
-        for i in monsters.size():
-            var saved_monster: Dictionary = monsters[i]
-            if not saved_monster.has("rank"):
-                saved_monster["rank"] = 1
-            monsters[i] = saved_monster
         campaign_stage = int(parsed.get("campaign_stage", campaign_stage))
         completed_stages = parsed.get("completed_stages", [])
         monsters = parsed.get("monsters", [])
