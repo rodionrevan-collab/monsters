@@ -5,14 +5,14 @@ var enemy_team: Array[Dictionary] = []
 var player_hp: Array[int] = []
 var enemy_hp: Array[int] = []
 var active_player: int = 0
-var selected_attack: int = 0
+var target_enemy: int = 0
 
+var skill_cooldowns: Array[Array] = []
 var player_list: VBoxContainer
 var enemy_list: VBoxContainer
 var battle_log: Label
 var turn_label: Label
 var action_box: HBoxContainer
-var reward_box: VBoxContainer
 
 var battle_over: bool = false
 var player_turn: bool = true
@@ -23,7 +23,7 @@ func _ready() -> void:
     _setup_teams()
     _build_ui()
     _refresh_ui()
-    _log("Battle started. Choose an attack.")
+    _log("Choose a target, then use one of the four skills.")
 
 func _setup_teams() -> void:
     var count := mini(3, GameState.monsters.size())
@@ -31,6 +31,7 @@ func _setup_teams() -> void:
         var m: Dictionary = GameState.monsters[i]
         var data: Dictionary = MonsterDatabase.get_monster(str(m.get("id", "")))
         player_team.append({
+            "id": str(m.get("id", "")),
             "name": str(m.get("nickname", "Monster")),
             "element": str(data.get("element", "Unknown")),
             "hp": int(m.get("hp", 100)),
@@ -38,9 +39,11 @@ func _setup_teams() -> void:
             "attack": int(m.get("attack", 25))
         })
         player_hp.append(int(m.get("hp", 100)))
+        skill_cooldowns.append([0, 0, 0, 0])
 
     while player_team.size() < 3:
         player_team.append({
+            "id": "",
             "name": "Empty Slot",
             "element": "-",
             "hp": 0,
@@ -48,6 +51,7 @@ func _setup_teams() -> void:
             "attack": 0
         })
         player_hp.append(0)
+        skill_cooldowns.append([0, 0, 0, 0])
 
     var scale := 1.0 + float(stage - 1) * 0.08
     enemy_team = [
@@ -65,13 +69,13 @@ func _build_ui() -> void:
     add_child(bg)
 
     var root := VBoxContainer.new()
-    root.position = Vector2(28, 24)
-    root.size = Vector2(1224, 672)
-    root.add_theme_constant_override("separation", 12)
+    root.position = Vector2(24, 18)
+    root.size = Vector2(1232, 684)
+    root.add_theme_constant_override("separation", 10)
     add_child(root)
 
     var header := HBoxContainer.new()
-    header.custom_minimum_size = Vector2(0, 56)
+    header.custom_minimum_size = Vector2(0, 54)
     root.add_child(header)
 
     var title := Label.new()
@@ -86,7 +90,7 @@ func _build_ui() -> void:
 
     var arena := HBoxContainer.new()
     arena.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    arena.add_theme_constant_override("separation", 20)
+    arena.add_theme_constant_override("separation", 16)
     root.add_child(arena)
 
     var player_panel := _panel()
@@ -95,21 +99,21 @@ func _build_ui() -> void:
 
     var player_root := VBoxContainer.new()
     player_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    player_root.offset_left = 16
-    player_root.offset_top = 14
-    player_root.offset_right = -16
-    player_root.offset_bottom = -14
-    player_root.add_theme_constant_override("separation", 8)
+    player_root.offset_left = 14
+    player_root.offset_top = 12
+    player_root.offset_right = -14
+    player_root.offset_bottom = -12
+    player_root.add_theme_constant_override("separation", 7)
     player_panel.add_child(player_root)
 
-    var pt := Label.new()
-    pt.text = "YOUR TEAM"
-    pt.add_theme_font_size_override("font_size", 20)
-    player_root.add_child(pt)
+    var player_title := Label.new()
+    player_title.text = "YOUR TEAM"
+    player_title.add_theme_font_size_override("font_size", 20)
+    player_root.add_child(player_title)
 
     player_list = VBoxContainer.new()
     player_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    player_list.add_theme_constant_override("separation", 8)
+    player_list.add_theme_constant_override("separation", 7)
     player_root.add_child(player_list)
 
     var enemy_panel := _panel()
@@ -118,67 +122,73 @@ func _build_ui() -> void:
 
     var enemy_root := VBoxContainer.new()
     enemy_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    enemy_root.offset_left = 16
-    enemy_root.offset_top = 14
-    enemy_root.offset_right = -16
-    enemy_root.offset_bottom = -14
-    enemy_root.add_theme_constant_override("separation", 8)
+    enemy_root.offset_left = 14
+    enemy_root.offset_top = 12
+    enemy_root.offset_right = -14
+    enemy_root.offset_bottom = -12
+    enemy_root.add_theme_constant_override("separation", 7)
     enemy_panel.add_child(enemy_root)
 
-    var et := Label.new()
-    et.text = "ENEMY TEAM"
-    et.add_theme_font_size_override("font_size", 20)
-    enemy_root.add_child(et)
+    var enemy_title := Label.new()
+    enemy_title.text = "ENEMY TEAM • CLICK A TARGET"
+    enemy_title.add_theme_font_size_override("font_size", 20)
+    enemy_root.add_child(enemy_title)
 
     enemy_list = VBoxContainer.new()
     enemy_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    enemy_list.add_theme_constant_override("separation", 8)
+    enemy_list.add_theme_constant_override("separation", 7)
     enemy_root.add_child(enemy_list)
 
     var log_panel := _panel()
-    log_panel.custom_minimum_size = Vector2(0, 110)
+    log_panel.custom_minimum_size = Vector2(0, 78)
     root.add_child(log_panel)
 
     battle_log = Label.new()
-    battle_log.position = Vector2(14, 12)
-    battle_log.size = Vector2(1196, 86)
+    battle_log.position = Vector2(12, 10)
+    battle_log.size = Vector2(1200, 58)
     battle_log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     battle_log.modulate = Color("#86d8ff")
     log_panel.add_child(battle_log)
 
     action_box = HBoxContainer.new()
-    action_box.custom_minimum_size = Vector2(0, 52)
-    action_box.add_theme_constant_override("separation", 8)
+    action_box.custom_minimum_size = Vector2(0, 58)
+    action_box.add_theme_constant_override("separation", 7)
     root.add_child(action_box)
-    _build_actions()
+    _refresh_actions()
 
     var bottom := HBoxContainer.new()
     bottom.custom_minimum_size = Vector2(0, 42)
     root.add_child(bottom)
 
-    reward_box = VBoxContainer.new()
-    reward_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    bottom.add_child(reward_box)
-
     var back := Button.new()
-    back.text = "Return to Island"
-    back.custom_minimum_size = Vector2(170, 40)
-    back.pressed.connect(_return_to_island)
+    back.text = "Return to Campaign"
+    back.custom_minimum_size = Vector2(190, 40)
+    back.pressed.connect(_return_to_campaign)
     bottom.add_child(back)
 
-func _build_actions() -> void:
+func _refresh_actions() -> void:
+    if not action_box:
+        return
     for child in action_box.get_children():
         child.queue_free()
-    var attacks := [
-        ["Basic Attack", 1.0],
-        ["Power Strike", 1.6],
-        ["Element Burst", 2.0]
-    ]
-    for i in attacks.size():
+
+    if player_team.is_empty():
+        return
+
+    var skills: Array[Dictionary] = MonsterDatabase.get_skills(str(player_team[active_player].get("id", "")))
+    var cooldowns: Array = skill_cooldowns[active_player]
+
+    for i in skills.size():
+        var skill: Dictionary = skills[i]
         var button := Button.new()
-        button.text = "%s x%.1f" % [attacks[i][0], float(attacks[i][1])]
-        button.custom_minimum_size = Vector2(190, 44)
-        button.pressed.connect(_use_attack.bind(i))
+        var remaining := int(cooldowns[i])
+        if remaining > 0:
+            button.text = "%s\nCD %d" % [str(skill.get("name", "Skill")), remaining]
+            button.disabled = true
+        else:
+            button.text = "%s\nx%.1f" % [str(skill.get("name", "Skill")), float(skill.get("power", 1.0))]
+        button.custom_minimum_size = Vector2(185, 48)
+        button.pressed.connect(_use_skill.bind(i))
         action_box.add_child(button)
 
 func _refresh_ui() -> void:
@@ -186,91 +196,164 @@ func _refresh_ui() -> void:
         for child in player_list.get_children():
             child.queue_free()
         for i in player_team.size():
-            var row := _unit_row(player_team[i], player_hp[i], player_team[i]["max_hp"], i == active_player and not battle_over)
-            player_list.add_child(row)
+            player_list.add_child(_player_row(i))
 
     if enemy_list:
         for child in enemy_list.get_children():
             child.queue_free()
         for i in enemy_team.size():
-            var row := _unit_row(enemy_team[i], enemy_hp[i], enemy_team[i]["max_hp"], false)
-            enemy_list.add_child(row)
+            enemy_list.add_child(_enemy_row(i))
 
     if turn_label:
         if battle_over:
             turn_label.text = "BATTLE COMPLETE"
         else:
-            turn_label.text = "Turn • %s" % player_team[active_player]["name"]
+            turn_label.text = "TURN • %s • TARGET %s" % [
+                str(player_team[active_player].get("name", "Monster")),
+                str(enemy_team[target_enemy].get("name", "Enemy"))
+            ]
 
-func _unit_row(unit: Dictionary, hp: int, max_hp: int, active: bool) -> PanelContainer:
+    _refresh_actions()
+
+func _player_row(index: int) -> PanelContainer:
+    var unit: Dictionary = player_team[index]
     var panel := _panel()
-    panel.custom_minimum_size = Vector2(0, 92)
-    var row := VBoxContainer.new()
-    row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    row.offset_left = 10
-    row.offset_top = 8
-    row.offset_right = -10
-    row.offset_bottom = -8
-    row.add_theme_constant_override("separation", 2)
-    panel.add_child(row)
+    panel.custom_minimum_size = Vector2(0, 94)
+
+    var root := VBoxContainer.new()
+    root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    root.offset_left = 10
+    root.offset_top = 8
+    root.offset_right = -10
+    root.offset_bottom = -8
+    root.add_theme_constant_override("separation", 2)
+    panel.add_child(root)
 
     var title := Label.new()
-    title.text = ("%s  <ACTIVE>" if active else "%s") % str(unit.get("name", "Unit"))
+    title.text = ("%s  • ACTIVE" if index == active_player and not battle_over else "%s") % str(unit.get("name", "Unit"))
     title.add_theme_font_size_override("font_size", 16)
-    row.add_child(title)
+    root.add_child(title)
 
-    var element := Label.new()
-    element.text = "%s • ATK %d" % [str(unit.get("element", "-")), int(unit.get("attack", 0))]
-    element.modulate = Color("#a9bad1")
-    row.add_child(element)
+    var detail := Label.new()
+    detail.text = "%s • ATK %d" % [str(unit.get("element", "-")), int(unit.get("attack", 0))]
+    detail.modulate = Color("#a9bad1")
+    root.add_child(detail)
 
     var bar := ProgressBar.new()
-    bar.max_value = max_hp
-    bar.value = hp
+    bar.max_value = max(1, int(unit.get("max_hp", 1)))
+    bar.value = player_hp[index]
     bar.show_percentage = false
-    bar.custom_minimum_size = Vector2(0, 20)
-    row.add_child(bar)
+    bar.custom_minimum_size = Vector2(0, 18)
+    root.add_child(bar)
 
-    var hp_label := Label.new()
-    hp_label.text = "HP %d / %d" % [hp, max_hp]
-    hp_label.add_theme_font_size_override("font_size", 11)
-    row.add_child(hp_label)
+    var hp := Label.new()
+    hp.text = "HP %d / %d" % [player_hp[index], int(unit.get("max_hp", 0))]
+    hp.add_theme_font_size_override("font_size", 11)
+    root.add_child(hp)
+
     return panel
 
-func _use_attack(index: int) -> void:
+func _enemy_row(index: int) -> PanelContainer:
+    var unit: Dictionary = enemy_team[index]
+    var panel := _panel()
+    panel.custom_minimum_size = Vector2(0, 94)
+
+    var root := HBoxContainer.new()
+    root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    root.offset_left = 10
+    root.offset_top = 8
+    root.offset_right = -10
+    root.offset_bottom = -8
+    panel.add_child(root)
+
+    var info := VBoxContainer.new()
+    info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    root.add_child(info)
+
+    var title := Label.new()
+    title.text = ("%s  • TARGET" if index == target_enemy and enemy_hp[index] > 0 else "%s") % str(unit.get("name", "Enemy"))
+    title.add_theme_font_size_override("font_size", 16)
+    info.add_child(title)
+
+    var detail := Label.new()
+    detail.text = "%s • ATK %d" % [str(unit.get("element", "-")), int(unit.get("attack", 0))]
+    detail.modulate = Color("#a9bad1")
+    info.add_child(detail)
+
+    var bar := ProgressBar.new()
+    bar.max_value = max(1, int(unit.get("max_hp", 1)))
+    bar.value = enemy_hp[index]
+    bar.show_percentage = false
+    bar.custom_minimum_size = Vector2(0, 18)
+    info.add_child(bar)
+
+    var hp := Label.new()
+    hp.text = "HP %d / %d" % [enemy_hp[index], int(unit.get("max_hp", 0))]
+    hp.add_theme_font_size_override("font_size", 11)
+    info.add_child(hp)
+
+    var target := Button.new()
+    target.text = "TARGET" if index == target_enemy else "SELECT"
+    target.custom_minimum_size = Vector2(92, 70)
+    target.disabled = enemy_hp[index] <= 0 or battle_over
+    target.pressed.connect(_select_target.bind(index))
+    root.add_child(target)
+
+    return panel
+
+func _select_target(index: int) -> void:
+    if battle_over or not player_turn or enemy_hp[index] <= 0:
+        return
+    target_enemy = index
+    _log("Target selected: %s." % enemy_team[index]["name"])
+    _refresh_ui()
+
+func _use_skill(index: int) -> void:
     if battle_over or not player_turn:
         return
 
     var target := _first_alive_enemy()
+    if target_enemy >= 0 and target_enemy < enemy_hp.size() and enemy_hp[target_enemy] > 0:
+        target = target_enemy
     if target == -1:
         _finish_battle(true)
         return
 
-    var multiplier := [1.0, 1.6, 2.0][index]
-    var base_damage := int(player_team[active_player]["attack"])
-    var damage := int(float(base_damage) * multiplier)
+    var skills: Array[Dictionary] = MonsterDatabase.get_skills(str(player_team[active_player].get("id", "")))
+    if index < 0 or index >= skills.size():
+        return
 
-    var attacker_element := str(player_team[active_player]["element"])
-    var defender_element := str(enemy_team[target]["element"])
-    var element_multiplier := MonsterDatabase.effectiveness(attacker_element, defender_element)
-    damage = int(float(damage) * element_multiplier)
+    var skill: Dictionary = skills[index]
+    var cooldown := int(skill.get("cooldown", 0))
+    if int(skill_cooldown(active_player, index)) > 0:
+        return
 
-    if index == 2:
-        damage += 20
+    skill_cooldowns[active_player][index] = cooldown
+    var kind := str(skill.get("kind", "damage"))
+    if kind == "heal_self":
+        var heal := int(float(player_team[active_player]["max_hp"]) * float(skill.get("power", 0.9)) * 0.45)
+        player_hp[active_player] = mini(player_team[active_player]["max_hp"], player_hp[active_player] + heal)
+        _log("%s used %s and recovered %d HP." % [player_team[active_player]["name"], skill["name"], heal])
+    else:
+        var base_damage := int(player_team[active_player]["attack"])
+        var damage := int(float(base_damage) * float(skill.get("power", 1.0)))
+        var attacker_element := str(player_team[active_player]["element"])
+        var defender_element := str(enemy_team[target]["element"])
+        var multiplier := MonsterDatabase.effectiveness(attacker_element, defender_element)
+        damage = int(float(damage) * multiplier)
+        enemy_hp[target] = maxi(0, enemy_hp[target] - damage)
+        _log("%s used %s on %s for %d damage." % [
+            player_team[active_player]["name"],
+            skill["name"],
+            enemy_team[target]["name"],
+            damage
+        ])
+        if multiplier > 1.0:
+            _log("Elemental advantage!")
+        elif multiplier < 1.0:
+            _log("The attack was resisted.")
 
-    if element_multiplier > 1.0:
-        _log("%s has elemental advantage." % player_team[active_player]["name"])
-    elif element_multiplier < 1.0:
-        _log("%s is resisted by %s." % [player_team[active_player]["name"], enemy_team[target]["name"]])
-
-    enemy_hp[target] = maxi(0, enemy_hp[target] - damage)
-    _log("%s used %s for %d damage. %s -> %s." % [
-        player_team[active_player]["name"],
-        ["Basic Attack", "Power Strike", "Element Burst"][index],
-        damage,
-        attacker_element,
-        defender_element
-    ])
+    _tick_cooldowns()
     _refresh_ui()
 
     if _all_enemies_defeated():
@@ -278,8 +361,20 @@ func _use_attack(index: int) -> void:
         return
 
     player_turn = false
-    await get_tree().create_timer(0.55).timeout
+    await get_tree().create_timer(0.5).timeout
     _enemy_turn()
+
+func skill_cooldown(unit_index: int, skill_index: int) -> int:
+    if unit_index < 0 or unit_index >= skill_cooldowns.size():
+        return 0
+    if skill_index < 0 or skill_index >= skill_cooldowns[unit_index].size():
+        return 0
+    return int(skill_cooldowns[unit_index][skill_index])
+
+func _tick_cooldowns() -> void:
+    for unit_cooldowns in skill_cooldowns:
+        for i in unit_cooldowns.size():
+            unit_cooldowns[i] = maxi(0, int(unit_cooldowns[i]) - 1)
 
 func _enemy_turn() -> void:
     if battle_over:
@@ -311,6 +406,7 @@ func _enemy_turn() -> void:
         return
 
     active_player = _first_alive_player()
+    target_enemy = _first_alive_enemy()
     player_turn = true
     _refresh_ui()
 
@@ -337,6 +433,7 @@ func _finish_battle(victory: bool) -> void:
         return
     battle_over = true
     player_turn = false
+
     if victory:
         var reward := GameState.complete_stage(stage)
         if reward.is_empty():
@@ -352,7 +449,7 @@ func _finish_battle(victory: bool) -> void:
         _log("DEFEAT. Train your monsters and try again.")
     _refresh_ui()
 
-func _return_to_island() -> void:
+func _return_to_campaign() -> void:
     GameState.save_game()
     get_tree().change_scene_to_file("res://scenes/Campaign.tscn")
 
