@@ -27,6 +27,8 @@ var incubating: Dictionary = {}
 var breeding_slots: Array = []
 var egg_inventory: Array = []
 var incubators: Array = []
+var islands: Array = []
+var selected_island: int = 0
 const MAX_BREEDING_SLOTS := 2
 const MAX_INCUBATORS := 3
 
@@ -37,6 +39,8 @@ func _ready() -> void:
         save_game()
     elif buildings.is_empty():
         _create_buildings_from_legacy()
+    _migrate_island_system()
+    _load_active_island()
     _update_production(false)
 
 func _create_new_game() -> void:
@@ -59,6 +63,132 @@ func _create_new_game() -> void:
     breeding_slots = [{}, {}]
     egg_inventory = []
     incubators = [{}, {}, {}]
+    islands = []
+    selected_island = 0
+
+func _create_initial_islands(now: int) -> void:
+    islands = [
+        {
+            "id": 1,
+            "name": "Green Isle",
+            "theme": "Nature",
+            "unlocked": true,
+            "habitats": [
+                {"id": "green_meadow", "name": "Meadow Habitat", "element": "Nature", "capacity": 2, "monsters": [0], "building_id": "green_meadow_habitat"},
+                {"id": "green_cinder", "name": "Cinder Habitat", "element": "Fire", "capacity": 2, "monsters": [1], "building_id": "green_cinder_habitat"}
+            ],
+            "buildings": [
+                {"id": "green_meadow_habitat", "type": "habitat", "name": "Meadow Habitat", "element": "Nature", "level": 1, "capacity": 2, "gold_per_minute": 30, "last_tick": now},
+                {"id": "green_cinder_habitat", "type": "habitat", "name": "Cinder Habitat", "element": "Fire", "level": 1, "capacity": 2, "gold_per_minute": 30, "last_tick": now},
+                {"id": "green_food_farm_1", "type": "farm", "name": "Sunberry Farm", "element": "", "level": 1, "capacity": 0, "food_per_minute": 45, "last_tick": now}
+            ]
+        },
+        {
+            "id": 2,
+            "name": "Azure Atoll",
+            "theme": "Water/Air",
+            "unlocked": false,
+            "habitats": [
+                {"id": "azure_water", "name": "Tide Habitat", "element": "Water", "capacity": 2, "monsters": [], "building_id": "azure_water_habitat"},
+                {"id": "azure_air", "name": "Cloud Habitat", "element": "Air", "capacity": 2, "monsters": [], "building_id": "azure_air_habitat"}
+            ],
+            "buildings": [
+                {"id": "azure_water_habitat", "type": "habitat", "name": "Tide Habitat", "element": "Water", "level": 1, "capacity": 2, "gold_per_minute": 40, "last_tick": now},
+                {"id": "azure_air_habitat", "type": "habitat", "name": "Cloud Habitat", "element": "Air", "level": 1, "capacity": 2, "gold_per_minute": 40, "last_tick": now},
+                {"id": "azure_food_farm_1", "type": "farm", "name": "Blueberry Farm", "element": "", "level": 1, "capacity": 0, "food_per_minute": 60, "last_tick": now}
+            ]
+        }
+    ]
+
+func _migrate_island_system() -> void:
+    if not islands.is_empty():
+        return
+    var now := int(Time.get_unix_time_from_system())
+    var legacy_habitats: Array = habitats
+    var legacy_buildings: Array = buildings
+    _create_initial_islands(now)
+    if not legacy_habitats.is_empty():
+        islands[0]["habitats"] = legacy_habitats.duplicate(true)
+        for i in islands[0]["habitats"].size():
+            var h: Dictionary = islands[0]["habitats"][i]
+            h["building_id"] = "green_meadow_habitat" if i == 0 else "green_cinder_habitat"
+            islands[0]["habitats"][i] = h
+    if not legacy_buildings.is_empty():
+        islands[0]["buildings"] = legacy_buildings.duplicate(true)
+        for building in islands[0]["buildings"]:
+            var old_id := str(building.get("id", ""))
+            if old_id == "meadow_habitat":
+                building["id"] = "green_meadow_habitat"
+            elif old_id == "cinder_habitat":
+                building["id"] = "green_cinder_habitat"
+            elif old_id.begins_with("food_farm_"):
+                building["id"] = "green_" + old_id
+    selected_island = 0
+    save_game()
+
+func _save_active_island() -> void:
+    if islands.is_empty():
+        return
+    islands[selected_island]["habitats"] = habitats.duplicate(true)
+    islands[selected_island]["buildings"] = buildings.duplicate(true)
+
+func _load_active_island() -> void:
+    if islands.is_empty():
+        return
+    selected_island = clampi(selected_island, 0, islands.size() - 1)
+    habitats = islands[selected_island].get("habitats", []).duplicate(true)
+    buildings = islands[selected_island].get("buildings", []).duplicate(true)
+
+func current_island_name() -> String:
+    if islands.is_empty():
+        return "Green Isle"
+    return str(islands[selected_island].get("name", "Island"))
+
+func current_island_theme() -> String:
+    if islands.is_empty():
+        return "Nature"
+    return str(islands[selected_island].get("theme", "Nature"))
+
+func is_island_unlocked(index: int) -> bool:
+    return index >= 0 and index < islands.size() and bool(islands[index].get("unlocked", false))
+
+func island_unlock_cost(index: int) -> int:
+    if index == 1:
+        return 10000
+    return 999999999
+
+func can_unlock_island(index: int) -> bool:
+    if index < 0 or index >= islands.size() or is_island_unlocked(index):
+        return false
+    if index == 1:
+        return level >= 8 and (developer_mode or gold >= island_unlock_cost(index))
+    return false
+
+func unlock_island(index: int) -> bool:
+    if not can_unlock_island(index):
+        if index == 1 and level < 8:
+            log_message.emit("Reach island level 8 to unlock Azure Atoll.")
+        elif index == 1:
+            log_message.emit("Need 10000 gold to unlock Azure Atoll.")
+        return false
+    if not developer_mode:
+        gold -= island_unlock_cost(index)
+    islands[index]["unlocked"] = true
+    _emit_state()
+    save_game()
+    log_message.emit("%s unlocked!" % islands[index].get("name", "New Island"))
+    return true
+
+func switch_island(index: int) -> bool:
+    if index < 0 or index >= islands.size() or not is_island_unlocked(index):
+        return false
+    _save_active_island()
+    selected_island = index
+    _load_active_island()
+    save_game()
+    _emit_state()
+    log_message.emit("Travelled to %s." % current_island_name())
+    return true
 
 func _create_buildings_from_legacy() -> void:
     var now := int(Time.get_unix_time_from_system())
@@ -100,7 +230,7 @@ func habitat_capacity(habitat_index: int) -> int:
 func _habitat_building_id(habitat_index: int) -> String:
     if habitat_index < 0 or habitat_index >= habitats.size():
         return ""
-    return "meadow_habitat" if habitat_index == 0 else "cinder_habitat"
+    return str(habitats[habitat_index].get("building_id", ""))
 
 func can_assign_monster(monster_index: int, habitat_index: int) -> bool:
     if monster_index < 0 or monster_index >= monsters.size():
@@ -134,6 +264,7 @@ func assign_monster_to_habitat(monster_index: int, habitat_index: int) -> bool:
         target_list.append(monster_index)
     target["monsters"] = target_list
     habitats[habitat_index] = target
+    _save_active_island()
 
     _emit_state()
     save_game()
@@ -152,6 +283,7 @@ func remove_monster_from_habitat(monster_index: int) -> bool:
     list.erase(monster_index)
     target["monsters"] = list
     habitats[old_habitat] = target
+    _save_active_island()
     _emit_state()
     save_game()
     return true
@@ -169,9 +301,13 @@ func _update_production(notify: bool = true) -> void:
         var gold_rate := float(building.get("gold_per_minute", 0))
         var food_rate := float(building.get("food_per_minute", 0))
         if building.get("type", "") == "habitat":
-            var habitat_index := 0 if str(building.get("id", "")) == "meadow_habitat" else 1
+            var habitat_index := -1
+            for h in habitats.size():
+                if str(habitats[h].get("building_id", "")) == str(building.get("id", "")):
+                    habitat_index = h
+                    break
             var occupant_count := 0
-            if habitat_index >= 0 and habitat_index < habitats.size():
+            if habitat_index >= 0:
                 var occupied: Array = habitats[habitat_index].get("monsters", [])
                 occupant_count = occupied.size()
             gold_rate *= float(occupant_count)
@@ -311,6 +447,7 @@ func upgrade_building(index: int) -> bool:
     elif building.get("type", "") == "farm":
         building["food_per_minute"] = int(building.get("food_per_minute", 45)) + 25
     buildings[index] = building
+    _save_active_island()
     log_message.emit("%s upgraded to level %d." % [building["name"], building["level"]])
     _emit_state()
     save_game()
@@ -344,6 +481,7 @@ func build_farm() -> bool:
         "food_per_minute": 45,
         "last_tick": now
     })
+    _save_active_island()
     log_message.emit("New Sunberry Farm built.")
     _emit_state()
     save_game()
@@ -570,6 +708,8 @@ func save_game() -> void:
         "developer_mode": developer_mode,
         "selected_stage": selected_stage,
         "selected_monster": selected_monster,
+        "selected_island": selected_island,
+        "islands": islands,
         "campaign_stage": campaign_stage,
         "completed_stages": completed_stages,
         "monsters": monsters,
@@ -601,6 +741,8 @@ func load_game() -> void:
         developer_mode = bool(parsed.get("developer_mode", false))
         selected_stage = int(parsed.get("selected_stage", selected_stage))
         selected_monster = int(parsed.get("selected_monster", selected_monster))
+        selected_island = int(parsed.get("selected_island", selected_island))
+        islands = parsed.get("islands", [])
         for i in monsters.size():
             var saved_monster: Dictionary = monsters[i]
             if not saved_monster.has("rank"):
