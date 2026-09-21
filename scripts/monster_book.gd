@@ -97,6 +97,11 @@ func _refresh() -> void:
         icon.add_theme_font_size_override("font_size", 24)
         box.add_child(icon)
 
+        var avatar: MonsterAvatar = preload("res://scripts/monster_avatar.gd").new()
+        avatar.setup(str(monster_id), str(data.get("element", "Nature")), str(data.get("rarity", "Common")))
+        avatar.custom_minimum_size = Vector2(66, 66)
+        box.add_child(avatar)
+
         var info := VBoxContainer.new()
         info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         box.add_child(info)
