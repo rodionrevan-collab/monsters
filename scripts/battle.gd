@@ -353,7 +353,6 @@ func _use_skill(index: int) -> void:
         elif multiplier < 1.0:
             _log("The attack was resisted.")
 
-    _tick_cooldowns()
     _refresh_ui()
 
     if _all_enemies_defeated():
@@ -405,6 +404,7 @@ func _enemy_turn() -> void:
         _finish_battle(false)
         return
 
+    _tick_cooldowns()
     active_player = _first_alive_player()
     target_enemy = _first_alive_enemy()
     player_turn = true
