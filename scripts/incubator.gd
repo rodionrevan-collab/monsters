@@ -3,6 +3,9 @@ extends Control
 var status: Label
 var egg_panel: VBoxContainer
 
+func _process(_delta: float) -> void:
+    _refresh()
+
 func _ready() -> void:
     _build_ui()
     GameState.state_changed.connect(_refresh)
