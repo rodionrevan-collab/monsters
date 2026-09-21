@@ -365,6 +365,11 @@ func _refresh_monsters() -> void:
         row.offset_bottom = -8
         card.add_child(row)
 
+        var avatar: MonsterAvatar = preload("res://scripts/monster_avatar.gd").new()
+        avatar.setup(str(monster.get("id", "")), str(data.get("element", "Nature")), str(data.get("rarity", "Common")))
+        avatar.custom_minimum_size = Vector2(62, 62)
+        row.add_child(avatar)
+
         var info := VBoxContainer.new()
         info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         row.add_child(info)
