@@ -67,6 +67,10 @@ func _build_ui() -> void:
     dev_check.toggled.connect(_toggle_dev)
     header_row.add_child(dev_check)
 
+    var islands_button := _make_button("Islands", 90)
+    islands_button.pressed.connect(_open_islands)
+    header_row.add_child(islands_button)
+
     var book := _make_button("Monster Book", 145)
     book.pressed.connect(_open_book)
     header_row.add_child(book)
