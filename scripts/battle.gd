@@ -61,14 +61,29 @@ func _setup_teams() -> void:
             player_hp.append(0)
         skill_cooldowns.append([0, 0, 0, 0])
 
-    var scale := 1.0 + float(stage - 1) * 0.08
-    enemy_team = [
-        {"name": "Stonefang", "element": "Nature", "hp": int(260 * scale), "max_hp": int(260 * scale), "attack": int(45 * scale)},
-        {"name": "Ashbeetle", "element": "Fire", "hp": int(210 * scale), "max_hp": int(210 * scale), "attack": int(52 * scale)},
-        {"name": "Mistfin", "element": "Water", "hp": int(230 * scale), "max_hp": int(230 * scale), "attack": int(48 * scale)}
-    ]
+    if GameState.battle_mode == "arena":
+        var opponents := GameState.arena_opponents()
+        var opponent: Dictionary = opponents[clampi(GameState.selected_arena_opponent, 0, opponents.size() - 1)]
+        for unit in opponent.get("team", []):
+            enemy_team.append({
+                "name": str(unit.get("name", "Opponent")),
+                "element": str(unit.get("element", "Nature")),
+                "hp": int(unit.get("hp", 100)),
+                "max_hp": int(unit.get("hp", 100)),
+                "attack": int(unit.get("attack", 25))
+            })
+    else:
+        var scale := 1.0 + float(stage - 1) * 0.08
+        enemy_team = [
+            {"name": "Stonefang", "element": "Nature", "hp": int(260 * scale), "max_hp": int(260 * scale), "attack": int(45 * scale)},
+            {"name": "Ashbeetle", "element": "Fire", "hp": int(210 * scale), "max_hp": int(210 * scale), "attack": int(52 * scale)},
+            {"name": "Mistfin", "element": "Water", "hp": int(230 * scale), "max_hp": int(230 * scale), "attack": int(48 * scale)}
+        ]
     for enemy in enemy_team:
         enemy_hp.append(int(enemy["hp"]))
+    while enemy_team.size() < 3:
+        enemy_team.append({"name": "Empty Opponent", "element": "-", "hp": 0, "max_hp": 0, "attack": 0})
+        enemy_hp.append(0)
 
 func _build_ui() -> void:
     var bg := ColorRect.new()
@@ -87,7 +102,7 @@ func _build_ui() -> void:
     root.add_child(header)
 
     var title := Label.new()
-    title.text = "STAGE %02d • WILD ARENA" % stage
+    title.text = ("ARENA • " + str(GameState.arena_opponents()[GameState.selected_arena_opponent].get("name", "Opponent"))) if GameState.battle_mode == "arena" else "STAGE %02d • WILD ARENA" % stage
     title.add_theme_font_size_override("font_size", 25)
     title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     header.add_child(title)
@@ -442,7 +457,13 @@ func _finish_battle(victory: bool) -> void:
     battle_over = true
     player_turn = false
 
-    if victory:
+    if GameState.battle_mode == "arena":
+        GameState.complete_arena(victory)
+        if victory:
+            _log("ARENA VICTORY! +100 trophies and rewards.")
+        else:
+            _log("ARENA DEFEAT. -50 trophies.")
+    elif victory:
         var defeated := 0
         for hp in player_hp:
             if hp <= 0:
@@ -454,21 +475,20 @@ func _finish_battle(victory: bool) -> void:
             stars = 2
 
         var reward := GameState.complete_stage(stage, stars)
-        if reward.is_empty():
-            _log("VICTORY! Stage %d completed with %d stars." % [stage, stars])
-        else:
-            _log("VICTORY! Stage %d • %d★ • +%d gold, +%d food, +%d XP." % [
-                stage,
-                stars,
-                int(reward.get("gold", 0)),
-                int(reward.get("food", 0)),
-                int(reward.get("xp", 0))
-            ])
+        _log("VICTORY! Stage %d • %d★ • +%d gold, +%d food, +%d XP." % [
+            stage,
+            stars,
+            int(reward.get("gold", 0)),
+            int(reward.get("food", 0)),
+            int(reward.get("xp", 0))
+        ])
     else:
         _log("DEFEAT. Train your monsters and try again.")
     _refresh_ui()
 
 func _return_to_campaign() -> void:
+    GameState.save_game()
+    GameState.battle_mode = "campaign"
     GameState.save_game()
     get_tree().change_scene_to_file("res://scenes/Campaign.tscn")
 
