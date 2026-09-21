@@ -12,6 +12,9 @@ var food: int = 1000
 var level: int = 1
 var xp: int = 0
 var developer_mode: bool = false
+var selected_stage: int = 1
+var campaign_stage: int = 1
+var completed_stages: Array = []
 
 var monsters: Array[Dictionary] = []
 var habitats: Array[Dictionary] = []
@@ -255,11 +258,41 @@ func _breed_result(a: String, b: String) -> String:
     var fallback := ["tidehorn", "stormwing"]
     return fallback[(monsters.size() + int(Time.get_unix_time_from_system())) % fallback.size()]
 
+func is_stage_unlocked(stage: int) -> bool:
+    return stage <= campaign_stage
+
+func stage_reward(stage: int) -> Dictionary:
+    var reward_gold := 500 + stage * 125
+    var reward_food := 180 + stage * 40
+    var reward_xp := 40 + stage * 10
+    return {"gold": reward_gold, "food": reward_food, "xp": reward_xp}
+
+func complete_stage(stage: int) -> Dictionary:
+    if stage < 1 or stage > 30:
+        return {}
+    var reward := stage_reward(stage)
+    if not completed_stages.has(stage):
+        completed_stages.append(stage)
+        gold += int(reward.get("gold", 0))
+        food += int(reward.get("food", 0))
+        xp += int(reward.get("xp", 0))
+        campaign_stage = maxi(campaign_stage, stage + 1)
+        if xp >= campaign_level_xp():
+            level += 1
+        log_message.emit("Stage %d complete! +%d gold, +%d food, +%d XP." % [stage, reward["gold"], reward["food"], reward["xp"]])
+        _emit_state()
+        save_game()
+    return reward
+
+func campaign_level_xp() -> int:
+    return 100 + level * 100
+
 func grant_dev_resources() -> void:
     developer_mode = true
     gold = 999999
     gems = 9999
     food = 999999
+    campaign_stage = 30
     _emit_state()
     save_game()
 
@@ -274,6 +307,9 @@ func save_game() -> void:
         "level": level,
         "xp": xp,
         "developer_mode": developer_mode,
+        "selected_stage": selected_stage,
+        "campaign_stage": campaign_stage,
+        "completed_stages": completed_stages,
         "monsters": monsters,
         "habitats": habitats,
         "buildings": buildings,
@@ -298,6 +334,9 @@ func load_game() -> void:
         level = int(parsed.get("level", level))
         xp = int(parsed.get("xp", xp))
         developer_mode = bool(parsed.get("developer_mode", false))
+        selected_stage = int(parsed.get("selected_stage", selected_stage))
+        campaign_stage = int(parsed.get("campaign_stage", campaign_stage))
+        completed_stages = parsed.get("completed_stages", [])
         monsters = parsed.get("monsters", [])
         habitats = parsed.get("habitats", [])
         buildings = parsed.get("buildings", [])
