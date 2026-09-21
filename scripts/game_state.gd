@@ -73,6 +73,8 @@ func _create_initial_islands(now: int) -> void:
             "name": "Green Isle",
             "theme": "Nature",
             "unlocked": true,
+            "territory_level": 1,
+            "max_slots": 4,
             "habitats": [
                 {"id": "green_meadow", "name": "Meadow Habitat", "element": "Nature", "capacity": 2, "monsters": [0], "building_id": "green_meadow_habitat"},
                 {"id": "green_cinder", "name": "Cinder Habitat", "element": "Fire", "capacity": 2, "monsters": [1], "building_id": "green_cinder_habitat"}
@@ -88,6 +90,8 @@ func _create_initial_islands(now: int) -> void:
             "name": "Azure Atoll",
             "theme": "Water/Air",
             "unlocked": false,
+            "territory_level": 1,
+            "max_slots": 4,
             "habitats": [
                 {"id": "azure_water", "name": "Tide Habitat", "element": "Water", "capacity": 2, "monsters": [], "building_id": "azure_water_habitat"},
                 {"id": "azure_air", "name": "Cloud Habitat", "element": "Air", "capacity": 2, "monsters": [], "building_id": "azure_air_habitat"}
@@ -148,6 +152,43 @@ func current_island_theme() -> String:
     if islands.is_empty():
         return "Nature"
     return str(islands[selected_island].get("theme", "Nature"))
+
+func island_building_slots_used(index: int = selected_island) -> int:
+    if index < 0 or index >= islands.size():
+        return 0
+    return islands[index].get("buildings", []).size()
+
+func island_building_slots_max(index: int = selected_island) -> int:
+    if index < 0 or index >= islands.size():
+        return 0
+    return int(islands[index].get("max_slots", 4))
+
+func island_expansion_cost(index: int = selected_island) -> int:
+    if index < 0 or index >= islands.size():
+        return 999999999
+    var territory_level := int(islands[index].get("territory_level", 1))
+    return 3000 * territory_level
+
+func can_expand_island(index: int = selected_island) -> bool:
+    if index < 0 or index >= islands.size() or not is_island_unlocked(index):
+        return false
+    return island_building_slots_used(index) < island_building_slots_max(index) and (developer_mode or gold >= island_expansion_cost(index))
+
+func expand_island(index: int = selected_island) -> bool:
+    if not can_expand_island(index):
+        return false
+    var cost := island_expansion_cost(index)
+    if not developer_mode:
+        gold -= cost
+    islands[index]["territory_level"] = int(islands[index].get("territory_level", 1)) + 1
+    islands[index]["max_slots"] = int(islands[index].get("max_slots", 4)) + 2
+    if index == selected_island:
+        _load_active_island()
+    _emit_state()
+    save_game()
+    log_message.emit("%s territory expanded!" % islands[index].get("name", "Island"))
+    return true
+
 
 func is_island_unlocked(index: int) -> bool:
     return index >= 0 and index < islands.size() and bool(islands[index].get("unlocked", false))
