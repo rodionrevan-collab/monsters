@@ -120,3 +120,13 @@ Use original monster names, designs, artwork, UI and lore. Reproduce the genre's
 - Best stage score persists and is shown on the campaign map
 - Achievements with independent rewards
 - Shop, quests and daily rewards share the same persistent progression state
+
+
+## Arena
+
+- Offline arena ladder against original AI teams
+- Trophy rating with win/loss changes
+- Arena win/loss statistics
+- Arena rewards: gold, food and gems
+- Shared custom 3-monster Battle Team
+- PvP/network layer can be connected later without changing the team UI
