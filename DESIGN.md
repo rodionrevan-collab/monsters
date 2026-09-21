@@ -76,3 +76,14 @@ Use original monster names, designs, artwork, UI and lore. Reproduce the genre's
 6. Enable Developer Mode to bypass timers during development.
 7. Claim egg, hatch monster, and verify collection count increases.
 8. Restart the game and verify local save data persists.
+
+
+## Breeding & hatching expansion
+
+- Two simultaneous breeding slots
+- Probability-based breeding recipes
+- Egg collection inventory
+- Three simultaneous incubators
+- Eggs can be loaded into any free incubator
+- Incubation time depends on the resulting monster
+- Legacy single breeding/incubation saves migrate into the new slots
