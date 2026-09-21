@@ -24,6 +24,11 @@ var habitats: Array[Dictionary] = []
 var buildings: Array[Dictionary] = []
 var breeding: Dictionary = {}
 var incubating: Dictionary = {}
+var breeding_slots: Array[Dictionary] = []
+var egg_inventory: Array[Dictionary] = []
+var incubators: Array[Dictionary] = []
+const MAX_BREEDING_SLOTS := 2
+const MAX_INCUBATORS := 3
 
 func _ready() -> void:
     load_game()
@@ -51,6 +56,9 @@ func _create_new_game() -> void:
     ]
     breeding = {}
     incubating = {}
+    breeding_slots = [{}, {}]
+    egg_inventory = []
+    incubators = [{}, {}, {}]
 
 func _create_buildings_from_legacy() -> void:
     var now := int(Time.get_unix_time_from_system())
@@ -342,70 +350,174 @@ func build_farm() -> bool:
     return true
 
 func can_breed() -> bool:
-    return breeding.is_empty() and monsters.size() >= 2
+    if monsters.size() < 2:
+        return false
+    for slot in breeding_slots:
+        if slot.is_empty():
+            return true
+    return false
+
+func free_breeding_slot() -> int:
+    for i in breeding_slots.size():
+        if breeding_slots[i].is_empty():
+            return i
+    return -1
 
 func start_breeding(a: int, b: int) -> bool:
-    if not can_breed():
-        return false
     if a == b or a < 0 or b < 0 or a >= monsters.size() or b >= monsters.size():
+        return false
+    var slot_index := free_breeding_slot()
+    if slot_index == -1:
+        log_message.emit("Both breeding slots are busy.")
         return false
     if not developer_mode and gold < 250:
         log_message.emit("Need 250 gold to start breeding.")
         return false
     if not developer_mode:
         gold -= 250
-    var duration := 20
-    breeding = {
+
+    var parent_a: String = str(monsters[a].get("id", ""))
+    var parent_b: String = str(monsters[b].get("id", ""))
+    var duration := 20 + ((int(monsters[a].get("level", 1)) + int(monsters[b].get("level", 1))) / 5)
+    var slot := {
         "a": a,
         "b": b,
+        "parent_a": parent_a,
+        "parent_b": parent_b,
         "ready_at": int(Time.get_unix_time_from_system()) + duration
     }
-    log_message.emit("Breeding started. The egg will be ready soon.")
+    breeding_slots[slot_index] = slot
+    _sync_legacy_breeding()
+    log_message.emit("Breeding slot %d started." % (slot_index + 1))
     _emit_state()
     save_game()
     return true
 
-func claim_breeding() -> bool:
-    if breeding.is_empty():
+func breeding_time_left(slot_index: int) -> int:
+    if slot_index < 0 or slot_index >= breeding_slots.size() or breeding_slots[slot_index].is_empty():
+        return 0
+    return maxi(0, int(breeding_slots[slot_index].get("ready_at", 0)) - int(Time.get_unix_time_from_system()))
+
+func claim_breeding(slot_index: int = -1) -> bool:
+    var chosen := slot_index
+    if chosen == -1:
+        for i in breeding_slots.size():
+            if not breeding_slots[i].is_empty() and breeding_time_left(i) <= 0:
+                chosen = i
+                break
+    if chosen < 0 or chosen >= breeding_slots.size() or breeding_slots[chosen].is_empty():
         return false
-    if not developer_mode and Time.get_unix_time_from_system() < int(breeding["ready_at"]):
+    if not developer_mode and breeding_time_left(chosen) > 0:
         return false
-    var a: Dictionary = monsters[int(breeding["a"])]
-    var b: Dictionary = monsters[int(breeding["b"])]
-    var child_id := _breed_result(str(a["id"]), str(b["id"]))
-    incubating = {
+
+    var slot: Dictionary = breeding_slots[chosen]
+    var parent_a := str(slot.get("parent_a", ""))
+    var parent_b := str(slot.get("parent_b", ""))
+    var rng := RandomNumberGenerator.new()
+    rng.randomize()
+    var child_id := MonsterDatabase.choose_breeding_result(parent_a, parent_b, rng)
+    egg_inventory.append({
         "monster_id": child_id,
-        "ready_at": int(Time.get_unix_time_from_system()) + 15
-    }
-    breeding = {}
-    log_message.emit("A new egg was created: %s." % MonsterDatabase.get_monster(child_id).get("name", child_id))
+        "created_at": int(Time.get_unix_time_from_system()),
+        "parents": [parent_a, parent_b]
+    })
+    breeding_slots[chosen] = {}
+    _sync_legacy_breeding()
+    log_message.emit("Egg added to collection: %s." % MonsterDatabase.get_monster(child_id).get("name", child_id))
     _emit_state()
     save_game()
     return true
 
-func claim_incubation() -> bool:
-    if incubating.is_empty():
+func incubator_free_slot() -> int:
+    for i in incubators.size():
+        if incubators[i].is_empty():
+            return i
+    return -1
+
+func load_egg_to_incubator(egg_index: int, incubator_index: int) -> bool:
+    if egg_index < 0 or egg_index >= egg_inventory.size():
         return false
-    if not developer_mode and Time.get_unix_time_from_system() < int(incubating["ready_at"]):
+    if incubator_index < 0 or incubator_index >= incubators.size():
         return false
-    var id := str(incubating["monster_id"])
+    if not incubators[incubator_index].is_empty():
+        return false
+
+    var egg: Dictionary = egg_inventory[egg_index]
+    var hatch_seconds := 15
+    var monster_id := str(egg.get("monster_id", ""))
+    var data: Dictionary = MonsterDatabase.get_monster(monster_id)
+    hatch_seconds += int(data.get("breed_time", 15))
+    incubators[incubator_index] = {
+        "monster_id": monster_id,
+        "parents": egg.get("parents", []),
+        "ready_at": int(Time.get_unix_time_from_system()) + hatch_seconds
+    }
+    egg_inventory.remove_at(egg_index)
+    _sync_legacy_incubating()
+    log_message.emit("%s loaded into incubator %d." % [data.get("name", monster_id), incubator_index + 1])
+    _emit_state()
+    save_game()
+    return true
+
+func incubation_time_left(slot_index: int) -> int:
+    if slot_index < 0 or slot_index >= incubators.size() or incubators[slot_index].is_empty():
+        return 0
+    return maxi(0, int(incubators[slot_index].get("ready_at", 0)) - int(Time.get_unix_time_from_system()))
+
+func claim_incubation(slot_index: int = -1) -> bool:
+    var chosen := slot_index
+    if chosen == -1:
+        for i in incubators.size():
+            if not incubators[i].is_empty() and incubation_time_left(i) <= 0:
+                chosen = i
+                break
+    if chosen < 0 or chosen >= incubators.size() or incubators[chosen].is_empty():
+        return false
+    if not developer_mode and incubation_time_left(chosen) > 0:
+        return false
+
+    var id := str(incubators[chosen].get("monster_id", ""))
     var data: Dictionary = MonsterDatabase.get_monster(id)
     monsters.append(_make_monster(id, "%s %d" % [data.get("name", id), monsters.size() + 1]))
-    incubating = {}
-    log_message.emit("Monster hatched!")
+    incubators[chosen] = {}
+    _sync_legacy_incubating()
+    log_message.emit("%s hatched!" % data.get("name", id))
     _emit_state()
     save_game()
     return true
 
-func _breed_result(a: String, b: String) -> String:
-    if (a == "sproutling" and b == "embercub") or (a == "embercub" and b == "sproutling"):
-        return "tidehorn"
-    if a == b and a == "sproutling":
-        return "mossback"
-    if a == b and a == "embercub":
-        return "stormwing"
-    var fallback := ["tidehorn", "stormwing"]
-    return fallback[(monsters.size() + int(Time.get_unix_time_from_system())) % fallback.size()]
+func _sync_legacy_breeding() -> void:
+    breeding = {}
+    for slot in breeding_slots:
+        if not slot.is_empty():
+            breeding = slot.duplicate(true)
+            break
+
+func _sync_legacy_incubating() -> void:
+    incubating = {}
+    for slot in incubators:
+        if not slot.is_empty():
+            incubating = slot.duplicate(true)
+            break
+
+func _migrate_legacy_timers() -> void:
+    if breeding_slots.is_empty():
+        breeding_slots = [{}, {}]
+    if incubators.is_empty():
+        incubators = [{}, {}, {}]
+    if not breeding.is_empty() and breeding_slots[0].is_empty():
+        breeding_slots[0] = {
+            "a": int(breeding.get("a", 0)),
+            "b": int(breeding.get("b", 1)),
+            "parent_a": str(breeding.get("parent_a", monsters[int(breeding.get("a", 0))].get("id", ""))) if not monsters.is_empty() else "",
+            "parent_b": str(breeding.get("parent_b", monsters[int(breeding.get("b", 1))].get("id", ""))) if monsters.size() > 1 else "",
+            "ready_at": int(breeding.get("ready_at", 0))
+        }
+    if not incubating.is_empty() and incubators[0].is_empty():
+        incubators[0] = incubating.duplicate(true)
+    _sync_legacy_breeding()
+    _sync_legacy_incubating()
+
 
 func is_stage_unlocked(stage: int) -> bool:
     return stage <= campaign_stage
@@ -464,7 +576,10 @@ func save_game() -> void:
         "habitats": habitats,
         "buildings": buildings,
         "breeding": breeding,
-        "incubating": incubating
+        "incubating": incubating,
+        "breeding_slots": breeding_slots,
+        "egg_inventory": egg_inventory,
+        "incubators": incubators
     }
     var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
     if file:
@@ -498,7 +613,20 @@ func load_game() -> void:
         buildings = parsed.get("buildings", [])
         breeding = parsed.get("breeding", {})
         incubating = parsed.get("incubating", {})
+        breeding_slots = parsed.get("breeding_slots", [])
+        egg_inventory = parsed.get("egg_inventory", [])
+        incubators = parsed.get("incubators", [])
         if monsters.is_empty():
             selected_monster = 0
         else:
             selected_monster = clampi(selected_monster, 0, monsters.size() - 1)
+        if breeding_slots.is_empty():
+            breeding_slots = [{}, {}]
+        if incubators.is_empty():
+            incubators = [{}, {}, {}]
+        for i in monsters.size():
+            var saved_monster: Dictionary = monsters[i]
+            if not saved_monster.has("rank"):
+                saved_monster["rank"] = 1
+            monsters[i] = saved_monster
+        _migrate_legacy_timers()
