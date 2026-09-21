@@ -320,6 +320,7 @@ func _update_production(notify: bool = true) -> void:
         building["last_tick"] = now
         buildings[i] = building
     if changed:
+        _save_active_island()
         save_game()
         if notify:
             _emit_state()
