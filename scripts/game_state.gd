@@ -20,6 +20,11 @@ var completed_stages: Array = []
 var stage_stars: Dictionary = {}
 var selected_monster: int = 0
 var battle_team: Array = [-1, -1, -1]
+var battle_mode: String = "campaign"
+var selected_arena_opponent: int = 0
+var arena_trophies: int = 0
+var arena_wins: int = 0
+var arena_losses: int = 0
 
 var monsters: Array[Dictionary] = []
 var habitats: Array[Dictionary] = []
@@ -709,6 +714,49 @@ func claim_daily_reward() -> bool:
     return true
 
 
+func arena_opponents() -> Array[Dictionary]:
+    return [
+        {"name": "Forest Rookie", "trophies": 0, "team": [{"name": "Leafling", "element": "Nature", "hp": 230, "attack": 42}, {"name": "Moss Pup", "element": "Nature", "hp": 210, "attack": 44}, {"name": "Ashbeetle", "element": "Fire", "hp": 190, "attack": 48}]},
+        {"name": "Ember Squad", "trophies": 150, "team": [{"name": "Flaretoad", "element": "Fire", "hp": 280, "attack": 60}, {"name": "Embercub", "element": "Fire", "hp": 250, "attack": 58}, {"name": "Mistfin", "element": "Water", "hp": 260, "attack": 50}]},
+        {"name": "Tide Hunters", "trophies": 350, "team": [{"name": "Tidehorn", "element": "Water", "hp": 330, "attack": 65}, {"name": "Reefclaw", "element": "Water", "hp": 300, "attack": 62}, {"name": "Stormwing", "element": "Air", "hp": 290, "attack": 66}]},
+        {"name": "Sky Keepers", "trophies": 600, "team": [{"name": "Cloudram", "element": "Air", "hp": 390, "attack": 76}, {"name": "Stormwing", "element": "Air", "hp": 360, "attack": 72}, {"name": "Mossback", "element": "Nature", "hp": 410, "attack": 68}]},
+        {"name": "Volta Guard", "trophies": 900, "team": [{"name": "Voltica", "element": "Fire", "hp": 450, "attack": 92}, {"name": "Flaretoad", "element": "Fire", "hp": 390, "attack": 78}, {"name": "Cloudram", "element": "Air", "hp": 400, "attack": 82}]},
+        {"name": "Island Champion", "trophies": 1250, "team": [{"name": "Thornhide", "element": "Nature", "hp": 520, "attack": 84}, {"name": "Voltica", "element": "Fire", "hp": 480, "attack": 98}, {"name": "Cloudram", "element": "Air", "hp": 470, "attack": 88}]}
+    ]
+
+func can_enter_arena(opponent_index: int) -> bool:
+    var opponents := arena_opponents()
+    if opponent_index < 0 or opponent_index >= opponents.size():
+        return false
+    if not can_enter_battle():
+        return false
+    return arena_trophies >= int(opponents[opponent_index].get("trophies", 0))
+
+func start_arena(opponent_index: int) -> bool:
+    if not can_enter_arena(opponent_index):
+        return false
+    battle_mode = "arena"
+    selected_arena_opponent = opponent_index
+    _emit_state()
+    save_game()
+    return true
+
+func complete_arena(victory: bool) -> void:
+    if victory:
+        arena_wins += 1
+        arena_trophies += 100
+        gold += 800
+        food += 300
+        gems += 2
+        log_message.emit("Arena victory! +100 trophies and battle rewards.")
+    else:
+        arena_losses += 1
+        arena_trophies = maxi(0, arena_trophies - 50)
+        log_message.emit("Arena defeat. -50 trophies.")
+    battle_mode = "campaign"
+    _emit_state()
+    save_game()
+
 func valid_battle_team() -> Array:
     var team: Array = []
     for index in battle_team:
@@ -976,6 +1024,11 @@ func save_game() -> void:
         "selected_monster": selected_monster,
         "selected_island": selected_island,
         "battle_team": battle_team,
+        "battle_mode": battle_mode,
+        "selected_arena_opponent": selected_arena_opponent,
+        "arena_trophies": arena_trophies,
+        "arena_wins": arena_wins,
+        "arena_losses": arena_losses,
         "islands": islands,
         "quest_progress": quest_progress,
         "claimed_quests": claimed_quests,
@@ -1016,6 +1069,11 @@ func load_game() -> void:
         selected_monster = int(parsed.get("selected_monster", selected_monster))
         selected_island = int(parsed.get("selected_island", selected_island))
         battle_team = parsed.get("battle_team", [-1, -1, -1])
+        battle_mode = str(parsed.get("battle_mode", "campaign"))
+        selected_arena_opponent = int(parsed.get("selected_arena_opponent", 0))
+        arena_trophies = int(parsed.get("arena_trophies", 0))
+        arena_wins = int(parsed.get("arena_wins", 0))
+        arena_losses = int(parsed.get("arena_losses", 0))
         islands = parsed.get("islands", [])
         quest_progress = parsed.get("quest_progress", {})
         claimed_quests = parsed.get("claimed_quests", [])
