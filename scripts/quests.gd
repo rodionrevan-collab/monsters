@@ -86,6 +86,10 @@ func _build_ui() -> void:
     back.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/Main.tscn"))
     footer.add_child(back)
 
+    var achievements := _button("Achievements", 150)
+    achievements.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/Achievements.tscn"))
+    footer.add_child(achievements)
+
     status = _label("", 13)
     status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
