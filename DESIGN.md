@@ -110,3 +110,13 @@ Use original monster names, designs, artwork, UI and lore. Reproduce the genre's
 - Quest rewards: gold, food and gems
 - Daily reward with a seven-day streak
 - Quest progress and daily streak persist in the save file
+
+
+## Battle & long-term meta expansion
+
+- Custom saved 3-monster battle team
+- Team management screen
+- Three-star campaign scoring
+- Best stage score persists and is shown on the campaign map
+- Achievements with independent rewards
+- Shop, quests and daily rewards share the same persistent progression state
