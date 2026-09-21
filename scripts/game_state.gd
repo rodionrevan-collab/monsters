@@ -498,84 +498,10 @@ func upgrade_building(index: int) -> bool:
     return true
 
 func can_build_farm() -> bool:
-    return buildings.size() < 6
+    return can_build_item("sunberry_farm")
 
 func build_farm() -> bool:
-    if not can_build_farm():
-        log_message.emit("The island has no free construction slots yet.")
-        return false
-    var cost := 1500
-    if not developer_mode and gold < cost:
-        log_message.emit("Need 1500 gold to build a new farm.")
-        return false
-    if not developer_mode:
-        gold -= cost
-    var now := int(Time.get_unix_time_from_system())
-    var number := 1
-    for building in buildings:
-        if building.get("type", "") == "farm":
-            number += 1
-    buildings.append({
-        "id": "food_farm_%d" % number,
-        "type": "farm",
-        "name": "Sunberry Farm %d" % number,
-        "element": "",
-        "level": 1,
-        "capacity": 0,
-        "food_per_minute": 45,
-        "last_tick": now
-    })
-    _save_active_island()
-    log_message.emit("New Sunberry Farm built.")
-    _emit_state()
-    save_game()
-    return true
-
-func achievement_definitions() -> Array[Dictionary]:
-    return [
-        {"id": "collector_5", "title": "Growing Collection", "description": "Own 5 monsters.", "action": "hatch", "goal": 3, "gold": 1500, "gems": 5},
-        {"id": "battle_10", "title": "Campaign Explorer", "description": "Win 10 campaign stages.", "action": "battle", "goal": 10, "gold": 2500, "gems": 10},
-        {"id": "feed_25", "title": "Monster Caretaker", "description": "Feed monsters 25 times.", "action": "feed", "goal": 25, "gold": 1800, "food": 1000, "gems": 8},
-        {"id": "breed_10", "title": "Master Breeder", "description": "Start 10 breeding jobs.", "action": "breed", "goal": 10, "gold": 2200, "gems": 8},
-        {"id": "build_10", "title": "Master Builder", "description": "Build 10 new buildings.", "action": "build", "goal": 10, "gold": 3000, "gems": 10},
-        {"id": "upgrade_10", "title": "Island Architect", "description": "Upgrade buildings 10 times.", "action": "upgrade", "goal": 10, "gold": 3500, "gems": 12}
-    ]
-
-func achievement_status(achievement_id: String) -> Dictionary:
-    for achievement in achievement_definitions():
-        if str(achievement.get("id", "")) == achievement_id:
-            var progress := int(quest_progress.get(str(achievement.get("action", "")), 0))
-            var goal := int(achievement.get("goal", 1))
-            return {
-                "progress": mini(progress, goal),
-                "goal": goal,
-                "completed": progress >= goal,
-                "claimed": claimed_achievements.has(achievement_id)
-            }
-    return {}
-
-func claim_achievement(achievement_id: String) -> bool:
-    if claimed_achievements.has(achievement_id):
-        return false
-    var achievement: Dictionary = {}
-    for entry in achievement_definitions():
-        if str(entry.get("id", "")) == achievement_id:
-            achievement = entry
-            break
-    if achievement.is_empty():
-        return false
-    var state := achievement_status(achievement_id)
-    if not bool(state.get("completed", false)):
-        return false
-
-    gold += int(achievement.get("gold", 0))
-    food += int(achievement.get("food", 0))
-    gems += int(achievement.get("gems", 0))
-    claimed_achievements.append(achievement_id)
-    log_message.emit("Achievement claimed: %s." % achievement.get("title", achievement_id))
-    _emit_state()
-    save_game()
-    return true
+    return build_item("sunberry_farm")
 
 
 func can_build_item(item_id: String) -> bool:
