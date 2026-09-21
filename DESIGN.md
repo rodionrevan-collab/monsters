@@ -98,3 +98,15 @@ Use original monster names, designs, artwork, UI and lore. Reproduce the genre's
 - Monster collection remains shared across islands.
 - Island territory has its own building-slot limit and expansion cost.
 - Island switching persists the previous island before loading the next one.
+
+
+## Economy & Live Progression
+
+- Building Shop for the active island
+- Purchaseable Nature, Fire, Water and Air habitats
+- Food Farm and Gold Mine production buildings
+- Building requirements by player level and island slots
+- Quest system tied to actual gameplay actions
+- Quest rewards: gold, food and gems
+- Daily reward with a seven-day streak
+- Quest progress and daily streak persist in the save file
