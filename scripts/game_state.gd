@@ -69,6 +69,81 @@ func _make_monster(monster_id: String, nickname: String) -> Dictionary:
         "attack": int(data.get("base_attack", 25))
     }
 
+func habitat_for_monster(monster_index: int) -> int:
+    for i in habitats.size():
+        var occupied: Array = habitats[i].get("monsters", [])
+        if occupied.has(monster_index):
+            return i
+    return -1
+
+func habitat_capacity(habitat_index: int) -> int:
+    if habitat_index < 0 or habitat_index >= habitats.size():
+        return 0
+    var habitat: Dictionary = habitats[habitat_index]
+    for building in buildings:
+        if str(building.get("id", "")) == _habitat_building_id(habitat_index):
+            return int(building.get("capacity", habitat.get("capacity", 2)))
+    return int(habitat.get("capacity", 2))
+
+func _habitat_building_id(habitat_index: int) -> String:
+    if habitat_index < 0 or habitat_index >= habitats.size():
+        return ""
+    return "meadow_habitat" if habitat_index == 0 else "cinder_habitat"
+
+func can_assign_monster(monster_index: int, habitat_index: int) -> bool:
+    if monster_index < 0 or monster_index >= monsters.size():
+        return false
+    if habitat_index < 0 or habitat_index >= habitats.size():
+        return false
+    var monster_data: Dictionary = MonsterDatabase.get_monster(str(monsters[monster_index].get("id", "")))
+    var habitat_element := str(habitats[habitat_index].get("element", ""))
+    if habitat_element != str(monster_data.get("element", "")):
+        return false
+    var occupied: Array = habitats[habitat_index].get("monsters", [])
+    var current_habitat := habitat_for_monster(monster_index)
+    if current_habitat == habitat_index:
+        return true
+    if occupied.size() >= habitat_capacity(habitat_index):
+        return false
+    return true
+
+func assign_monster_to_habitat(monster_index: int, habitat_index: int) -> bool:
+    if not can_assign_monster(monster_index, habitat_index):
+        return false
+
+    for habitat in habitats:
+        var list: Array = habitat.get("monsters", [])
+        list.erase(monster_index)
+        habitat["monsters"] = list
+
+    var target: Dictionary = habitats[habitat_index]
+    var target_list: Array = target.get("monsters", [])
+    if not target_list.has(monster_index):
+        target_list.append(monster_index)
+    target["monsters"] = target_list
+    habitats[habitat_index] = target
+
+    _emit_state()
+    save_game()
+    log_message.emit("%s moved to %s." % [
+        monsters[monster_index].get("nickname", "Monster"),
+        target.get("name", "Habitat")
+    ])
+    return true
+
+func remove_monster_from_habitat(monster_index: int) -> bool:
+    var old_habitat := habitat_for_monster(monster_index)
+    if old_habitat == -1:
+        return false
+    var target: Dictionary = habitats[old_habitat]
+    var list: Array = target.get("monsters", [])
+    list.erase(monster_index)
+    target["monsters"] = list
+    habitats[old_habitat] = target
+    _emit_state()
+    save_game()
+    return true
+
 func _update_production(notify: bool = true) -> void:
     var now := int(Time.get_unix_time_from_system())
     var changed := false
@@ -81,6 +156,12 @@ func _update_production(notify: bool = true) -> void:
         var minutes := float(elapsed) / 60.0
         var gold_rate := float(building.get("gold_per_minute", 0))
         var food_rate := float(building.get("food_per_minute", 0))
+        if building.get("type", "") == "habitat":
+            var habitat_index := 0 if str(building.get("id", "")) == "meadow_habitat" else 1
+            var occupant_count := 0
+            if habitat_index >= 0 and habitat_index < habitats.size():
+                occupant_count = (habitats[habitat_index].get("monsters", []) as Array).size()
+            gold_rate *= float(occupant_count)
         if gold_rate > 0.0:
             gold += int(minutes * gold_rate)
             changed = true
