@@ -24,9 +24,9 @@ var habitats: Array[Dictionary] = []
 var buildings: Array[Dictionary] = []
 var breeding: Dictionary = {}
 var incubating: Dictionary = {}
-var breeding_slots: Array[Dictionary] = []
-var egg_inventory: Array[Dictionary] = []
-var incubators: Array[Dictionary] = []
+var breeding_slots: Array = []
+var egg_inventory: Array = []
+var incubators: Array = []
 const MAX_BREEDING_SLOTS := 2
 const MAX_INCUBATORS := 3
 
