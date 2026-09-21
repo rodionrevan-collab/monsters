@@ -372,8 +372,13 @@ func _refresh_monsters() -> void:
         var title := _make_label(str(monster.get("nickname", "Monster")), 15)
         info.add_child(title)
 
+        var stars := ""
+        var rank := int(monster.get("rank", 1))
+        for star in 5:
+            stars += "★" if star < rank else "☆"
         var details := _make_label(
-            "Lv.%d • %s • HP %d • ATK %d" % [
+            "%s  •  Lv.%d • %s • HP %d • ATK %d" % [
+                stars,
                 int(monster.get("level", 1)),
                 str(data.get("element", "Unknown")),
                 int(monster.get("hp", 0)),
@@ -395,6 +400,10 @@ func _refresh_monsters() -> void:
         var feed := _make_button("Feed", 70)
         feed.pressed.connect(_feed.bind(i))
         row.add_child(feed)
+
+        var manage := _make_button("Manage", 76)
+        manage.pressed.connect(_open_monster_detail.bind(i))
+        row.add_child(manage)
 
 func _refresh_timers() -> void:
     if breeding_status:
@@ -420,6 +429,10 @@ func _remaining_text(target: int) -> String:
 
 func _feed(index: int) -> void:
     GameState.feed_monster(index, 1)
+
+func _open_monster_detail(index: int) -> void:
+    GameState.selected_monster = index
+    get_tree().change_scene_to_file("res://scenes/MonsterDetail.tscn")
 
 func _select_a(index: int) -> void:
     selected_a = index
