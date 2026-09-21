@@ -71,6 +71,14 @@ func _build_ui() -> void:
     book.pressed.connect(_open_book)
     header_row.add_child(book)
 
+    var habitats := _make_button("Habitats", 105)
+    habitats.pressed.connect(_open_habitats)
+    header_row.add_child(habitats)
+
+    var incubator := _make_button("Incubator", 105)
+    incubator.pressed.connect(_open_incubator)
+    header_row.add_child(incubator)
+
     var campaign := _make_button("Campaign", 125)
     campaign.pressed.connect(_open_campaign)
     header_row.add_child(campaign)
@@ -449,6 +457,12 @@ func _upgrade_building(index: int) -> void:
 
 func _open_book() -> void:
     get_tree().change_scene_to_file("res://scenes/MonsterBook.tscn")
+
+func _open_habitats() -> void:
+    get_tree().change_scene_to_file("res://scenes/HabitatManager.tscn")
+
+func _open_incubator() -> void:
+    get_tree().change_scene_to_file("res://scenes/Incubator.tscn")
 
 func _open_campaign() -> void:
     get_tree().change_scene_to_file("res://scenes/Campaign.tscn")
