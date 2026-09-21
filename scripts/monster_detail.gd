@@ -8,6 +8,7 @@ var rank_label: Label
 var rank_button: Button
 var status: Label
 var skills_box: VBoxContainer
+var avatar: MonsterAvatar
 
 func _ready() -> void:
     monster_index = clampi(GameState.selected_monster, 0, maxi(0, GameState.monsters.size() - 1))
@@ -64,6 +65,10 @@ func _build_ui() -> void:
     left_root.offset_bottom = -18
     left_root.add_theme_constant_override("separation", 10)
     left.add_child(left_root)
+
+    avatar = preload("res://scripts/monster_avatar.gd").new()
+    avatar.custom_minimum_size = Vector2(180, 180)
+    left_root.add_child(avatar)
 
     stats_label = _label("", 16)
     stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -140,6 +145,7 @@ func _refresh() -> void:
     var data: Dictionary = MonsterDatabase.get_monster(str(monster.get("id", "")))
 
     title_label.text = "%s  •  %s" % [monster.get("nickname", "Monster"), data.get("name", "Unknown")]
+    avatar.setup(str(monster.get("id", "")), str(data.get("element", "Nature")), str(data.get("rarity", "Common")))
     rank_label.text = _stars(int(monster.get("rank", 1)))
 
     stats_label.text = "Level %d / 50\nElement: %s\nRarity: %s\nHP: %d\nATK: %d" % [
