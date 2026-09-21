@@ -898,6 +898,10 @@ func save_game() -> void:
         "selected_monster": selected_monster,
         "selected_island": selected_island,
         "islands": islands,
+        "quest_progress": quest_progress,
+        "claimed_quests": claimed_quests,
+        "last_daily_reward_date": last_daily_reward_date,
+        "daily_reward_streak": daily_reward_streak,
         "campaign_stage": campaign_stage,
         "completed_stages": completed_stages,
         "monsters": monsters,
@@ -931,6 +935,10 @@ func load_game() -> void:
         selected_monster = int(parsed.get("selected_monster", selected_monster))
         selected_island = int(parsed.get("selected_island", selected_island))
         islands = parsed.get("islands", [])
+        quest_progress = parsed.get("quest_progress", {})
+        claimed_quests = parsed.get("claimed_quests", [])
+        last_daily_reward_date = str(parsed.get("last_daily_reward_date", ""))
+        daily_reward_streak = int(parsed.get("daily_reward_streak", 0))
         campaign_stage = int(parsed.get("campaign_stage", campaign_stage))
         completed_stages = parsed.get("completed_stages", [])
         monsters = parsed.get("monsters", [])
