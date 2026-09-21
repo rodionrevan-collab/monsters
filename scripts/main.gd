@@ -135,7 +135,7 @@ func _refresh_ui() -> void:
     if resource_label:
         resource_label.text = "Gold: %d\nGems: %d\nFood: %d" % [GameState.gold, GameState.gems, GameState.food]
     if dev_check:
-        dev_check.button_pressed = GameState.developer_mode
+        dev_check.set_pressed_no_signal(GameState.developer_mode)
     if not monster_list:
         return
     for child in monster_list.get_children():
