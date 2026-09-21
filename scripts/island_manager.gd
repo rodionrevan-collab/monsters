@@ -99,6 +99,10 @@ func _refresh() -> void:
 
         info.add_child(_label("Theme: %s" % str(island.get("theme", "Unknown")), 12))
         info.add_child(_label("Habitats: %d" % island.get("habitats", []).size(), 12))
+        info.add_child(_label("Building slots: %d / %d" % [
+            GameState.island_building_slots_used(i),
+            GameState.island_building_slots_max(i)
+        ], 12))
         info.add_child(_label(
             "Current island" if i == GameState.selected_island else (
                 "Unlocked" if bool(island.get("unlocked", false)) else "Locked"
@@ -119,11 +123,21 @@ func _refresh() -> void:
             action.pressed.connect(_unlock.bind(i))
         row.add_child(action)
 
+        if bool(island.get("unlocked", false)):
+            var expand := _button("Expand — %d Gold" % GameState.island_expansion_cost(i), 180)
+            expand.disabled = not GameState.can_expand_island(i)
+            expand.pressed.connect(_expand.bind(i))
+            row.add_child(expand)
+
 func _unlock(index: int) -> void:
     GameState.unlock_island(index)
 
 func _travel(index: int) -> void:
     GameState.switch_island(index)
+
+func _expand(index: int) -> void:
+    if not GameState.expand_island(index):
+        _show_status("No free building slot or not enough gold.")
 
 func _island_color(index: int) -> Color:
     if index == 1:
