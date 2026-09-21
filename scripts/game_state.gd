@@ -1039,6 +1039,9 @@ func load_game() -> void:
                 battle_team[i] = int(battle_team[i])
                 if battle_team[i] < -1 or battle_team[i] >= monsters.size():
                     battle_team[i] = -1
+            if valid_battle_team().is_empty():
+                for i in mini(3, monsters.size()):
+                    battle_team[i] = i
         if breeding_slots.is_empty():
             breeding_slots = [{}, {}]
         if incubators.is_empty():
