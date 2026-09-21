@@ -1032,12 +1032,13 @@ func load_game() -> void:
             selected_monster = 0
             battle_team = [-1, -1, -1]
         else:
+            selected_monster = clampi(selected_monster, 0, monsters.size() - 1)
             if battle_team.size() != 3:
                 battle_team = [-1, -1, -1]
             for i in battle_team.size():
                 battle_team[i] = int(battle_team[i])
-        else:
-            selected_monster = clampi(selected_monster, 0, monsters.size() - 1)
+                if battle_team[i] < -1 or battle_team[i] >= monsters.size():
+                    battle_team[i] = -1
         if breeding_slots.is_empty():
             breeding_slots = [{}, {}]
         if incubators.is_empty():
